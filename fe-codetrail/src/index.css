@@ -1,0 +1,59 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+/* hilangin whitespace + paksa dark bg */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #0B1220;
+}
+
+body {
+  color: #E6ECFF;
+}
+
+/* pastiin Vite default ga ngerusak layout */
+#root {
+  max-width: none !important;
+}
+
+/* ====== ANT MENU STYLE ====== */
+.ant-menu-dark.ant-menu-inline {
+  background: transparent !important;
+}
+
+.ant-menu-dark .ant-menu-item-selected {
+  background: rgba(124, 92, 255, 0.18) !important;
+  border-radius: 10px !important;
+}
+
+.ant-menu-dark .ant-menu-item {
+  border-radius: 10px !important;
+  margin-inline: 6px !important;
+  width: calc(100% - 12px) !important;
+}
+
+.ant-menu-dark .ant-menu-item:hover {
+  background: rgba(124, 92, 255, 0.12) !important;
+}
+
+.ant-menu-dark .ant-menu-item-group-title {
+  color: rgba(255,255,255,0.45) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.08em;
+  margin-top: 8px;
+}
+
+@keyframes popupScale {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
