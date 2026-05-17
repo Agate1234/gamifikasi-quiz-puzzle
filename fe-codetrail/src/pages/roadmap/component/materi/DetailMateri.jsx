@@ -182,6 +182,21 @@ export default function MateriFullscreen({
   const hasPreviewFile = Boolean(materi?.file_materi && materi?.id_materi);
   const hasExternalLink = Boolean(materi?.link);
 
+  const rawStatus =
+    materi?.raw_status ||
+    materi?.status ||
+    (materi?.is_unlock ? "not done" : "locked");
+
+  const normalizedStatus =
+    rawStatus === "done"
+      ? "done"
+      : rawStatus === "locked"
+        ? "locked"
+        : "not done";
+
+  const nextLabel = normalizedStatus === "done" ? "Selesai ✓" : "Selesai →";
+  const isNextDisabled = normalizedStatus === "locked";
+
   useEffect(() => {
     let cancelled = false;
 
@@ -359,8 +374,15 @@ export default function MateriFullscreen({
               <button style={S.backAction} onClick={onClose}>
                 ← Kembali
               </button>
-              <button style={S.nextAction} onClick={onNext || (() => {})}>
-                Selanjutnya →
+              <button
+                style={{
+                  ...S.nextAction,
+                  ...(isNextDisabled ? S.disabledAction : {}),
+                }}
+                disabled={isNextDisabled}
+                onClick={onNext || (() => {})}
+              >
+                {isNextDisabled ? "Terkunci" : nextLabel}
               </button>
             </div>
           </section>
@@ -596,5 +618,11 @@ const S = {
     cursor: "pointer",
     minWidth: 140,
     fontWeight: 800,
+  },
+
+  disabledAction: {
+    opacity: 0.45,
+    cursor: "not-allowed",
+    filter: "grayscale(0.4)",
   },
 };

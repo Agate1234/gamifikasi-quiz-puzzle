@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import GuidedTutor from "../GuidedTutor";
 
 export default function HasilQuiz({
   open,
@@ -8,6 +9,8 @@ export default function HasilQuiz({
   onShowKey,
   questions = [],
   selectedMap = {},
+  tutorActive = false,
+  onTutorDone,
 }) {
   const [showKey, setShowKey] = useState(false);
 
@@ -47,7 +50,7 @@ export default function HasilQuiz({
           <span style={R.linkLike}>{quizTitle}</span>
         </div>
 
-        <div style={R.card}>
+        <div style={R.card} data-tutor="quiz-result-card">
           <div style={R.smallLabel}>TOTAL SKOR</div>
 
           <div style={R.scoreRow}>
@@ -64,6 +67,7 @@ export default function HasilQuiz({
 
           <div style={R.actions}>
             <button
+              data-tutor="quiz-key-btn"
               style={R.secondaryBtn}
               onClick={() => {
                 const next = !showKey;
@@ -81,7 +85,7 @@ export default function HasilQuiz({
         </div>
 
         {showKey ? (
-          <div style={R.answerKeyCard}>
+          <div style={R.answerKeyCard} data-tutor="quiz-answer-key">
             <div style={R.previewTitle}>Review Jawaban Quiz</div>
 
             {review.length > 0 ? (
@@ -131,6 +135,44 @@ export default function HasilQuiz({
         <div style={R.quote}>
           “Learning never exhausts the mind.” — Leonardo da Vinci
         </div>
+
+        <GuidedTutor
+          open={tutorActive}
+          steps={
+            showKey
+              ? [
+                  {
+                    title: "Kunci Jawaban",
+                    body: "Di sini kamu bisa melihat review jawaban setelah quiz selesai. Bagian ini berguna buat mengecek soal yang benar atau salah.",
+                    target: '[data-tutor="quiz-answer-key"]',
+                  },
+                  {
+                    title: "Kembali ke Modul",
+                    body: "Setelah paham hasil dan kunci jawaban, kembali ke modul untuk melihat preview quiz dan lanjut ke puzzle.",
+                    target: '[data-tutor="quiz-result-card"]',
+                    actionLabel: "Kembali ke Modul",
+                    onAction: () => onTutorDone?.(),
+                  },
+                ]
+              : [
+                  {
+                    title: "Hasil Quiz",
+                    body: "Ini ringkasan hasil quiz: skor, XP didapat, akurasi, waktu, dan jumlah soal.",
+                    target: '[data-tutor="quiz-result-card"]',
+                  },
+                  {
+                    title: "Lihat Kunci Jawaban",
+                    body: "Klik tombol ini untuk membuka kunci jawaban dan review setelah quiz selesai.",
+                    target: '[data-tutor="quiz-key-btn"]',
+                    actionLabel: "Buka Kunci Jawaban",
+                    onAction: () => {
+                      setShowKey(true);
+                      onShowKey?.(true);
+                    },
+                  },
+                ]
+          }
+        />
       </div>
     </div>
   );

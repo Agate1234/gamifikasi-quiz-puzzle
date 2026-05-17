@@ -14,6 +14,8 @@ export default function PuzzleFullscreen({
   secondsTotal = 5 * 60,
   onClose,
   onFinish,
+  tutorActive = false,
+  onTutorPuzzleFinished,
 }) {
   if (!open) return null;
 
@@ -29,6 +31,8 @@ export default function PuzzleFullscreen({
     secondsTotal: Number(puzzle?.waktu || secondsTotal || 300),
     onClose,
     onFinish,
+    tutorActive,
+    onTutorPuzzleFinished,
   };
 
   if (puzzleType === "fill_blank") {

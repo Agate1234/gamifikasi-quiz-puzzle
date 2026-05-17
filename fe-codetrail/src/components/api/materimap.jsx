@@ -29,7 +29,12 @@ api.interceptors.request.use((config) => {
 
 export const getMapMateriApi = async (params) => {
   try {
-    const response = await api.get(`/roadmap/materi-map?${params.toString()}`);
+    const queryString =
+      params && typeof params.toString === "function" && params.toString()
+        ? `?${params.toString()}`
+        : "";
+
+    const response = await api.get(`/roadmap/materi-map${queryString}`);
     return response;
   } catch (error) {
     return (
@@ -61,6 +66,26 @@ export const getMapMateriByIdApi = async (id, params = null) => {
         data: {
           success: false,
           message: "Gagal mengambil detail map materi.",
+        },
+      }
+    );
+  }
+};
+
+export const updateProgressMateriDoneApi = async (idProgress) => {
+  try {
+    const response = await api.patch(
+      `/roadmap/materi-map/${idProgress}/done`
+    );
+
+    return response;
+  } catch (error) {
+    return (
+      error.response || {
+        status: 500,
+        data: {
+          success: false,
+          message: "Gagal menyelesaikan materi.",
         },
       }
     );

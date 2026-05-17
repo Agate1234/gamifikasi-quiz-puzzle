@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { P } from "./PuzzleStyle";
 import { usePuzzleTimer } from "./PuzzleTimer";
 import { updatePuzzleAttemptApi } from "../../../../components/api/puzzlemap";
@@ -24,6 +25,8 @@ export default function DragDropPuzzle({
   secondsTotal,
   onClose,
   onFinish,
+  tutorActive = false,
+  onTutorPuzzleFinished,
 }) {
   const detail = puzzle?.detail || {};
   const { secondsElapsed, timeMM, timeSS, timeText } = usePuzzleTimer(open);
@@ -118,7 +121,10 @@ export default function DragDropPuzzle({
     document.body.style.overflow = "hidden";
 
     const onKey = (e) => {
-      if (e.key === "Escape") handleClose();
+      if (e.key === "Escape") {
+        if (tutorActive && !isDone) return;
+        handleClose();
+      }
     };
     window.addEventListener("keydown", onKey);
 
@@ -346,6 +352,7 @@ export default function DragDropPuzzle({
           title: "Jawaban Benar!",
           message: "Puzzle berhasil diselesaikan.",
           onClose: () => {
+            if (tutorActive) onTutorPuzzleFinished?.();
             onFinish?.(finalResult);
           },
         });
@@ -368,9 +375,6 @@ export default function DragDropPuzzle({
       <div style={P.sheet} onMouseDown={(e) => e.stopPropagation()}>
         <div style={P.topbar}>
           <div style={P.breadcrumb}>
-            <button style={P.backBtn} onClick={handleClose}>
-              ←
-            </button>
             <span style={P.muted}>Roadmap</span>
             <span style={P.muted}>›</span>
             <span style={P.crumbStrong}>
@@ -383,7 +387,7 @@ export default function DragDropPuzzle({
           </div>
         </div>
 
-        <div style={P.body}>
+        <div style={P.body} data-tutor="puzzle-drag-area">
           <div style={P.header}>
             <div>
               <div style={P.badgeRow}>
@@ -416,6 +420,7 @@ export default function DragDropPuzzle({
               </div>
 
               <div
+                data-tutor="drag-items"
                 style={D.snipList}
                 onDragOver={allowDrop}
                 onDrop={dropToBank}
@@ -463,7 +468,7 @@ export default function DragDropPuzzle({
                   <div style={P.fileTab}>solution.sql</div>
                 </div>
 
-                <div style={P.editorBody}>
+                <div style={P.editorBody} data-tutor="drop-slots">
                   {slots.map((slot, index) => (
                     <div
                       key={slot.id}
@@ -492,7 +497,7 @@ export default function DragDropPuzzle({
 
               <div style={P.actions}>
                 {!isDone ? (
-                  <button style={P.checkBtn} onClick={checkAnswer}>
+                  <button data-tutor="drag-submit" style={P.checkBtn} onClick={checkAnswer}>
                     Periksa Jawaban 🚀
                   </button>
                 ) : (
@@ -533,9 +538,457 @@ export default function DragDropPuzzle({
     </div>
   </div>
 ) : null}
+
+      <InlineWorkTutor
+        open={tutorActive && !isDone}
+        steps={[
+          {
+            title: "Item yang Di-drag",
+            body: "Ini item/potongan kode yang harus kamu geser.",
+            target: '[data-tutor="drag-items"]',
+          },
+          {
+            title: "Tempat Meletakkan",
+            body: "Taruh item ke slot ini sesuai urutan yang benar.",
+            target: '[data-tutor="drop-slots"]',
+          },
+          {
+            title: "Cek Jawaban",
+            body: "Kalau semua slot sudah terisi, klik tombol ini untuk mengecek jawaban.",
+            target: '[data-tutor="drag-submit"]',
+          },
+        ]}
+      />
     </div>
   );
 }
+
+function InlineWorkTutor({ open, steps = [] }) {
+  const [index, setIndex] = React.useState(0);
+  const [hidden, setHidden] = React.useState(false);
+  const [rect, setRect] = React.useState(null);
+  const [mounted, setMounted] = React.useState(false);
+
+  const step = steps[index];
+  const active = open && !hidden && !!step;
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) {
+      setIndex(0);
+      setHidden(false);
+      setRect(null);
+      return;
+    }
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!active) return;
+
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    const preventScroll = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    window.addEventListener("wheel", preventScroll, {
+      passive: false,
+      capture: true,
+    });
+
+    window.addEventListener("touchmove", preventScroll, {
+      passive: false,
+      capture: true,
+    });
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      window.removeEventListener("wheel", preventScroll, true);
+      window.removeEventListener("touchmove", preventScroll, true);
+    };
+  }, [active]);
+
+  React.useEffect(() => {
+    if (!active) return;
+
+    let timer = null;
+    let interval = null;
+    let cancelled = false;
+    let retry = 0;
+
+    const update = () => {
+      if (cancelled) return;
+
+      if (!step?.target) {
+        setRect(null);
+        return;
+      }
+
+      const el = document.querySelector(step.target);
+
+      if (!el) {
+        setRect(null);
+
+        if (retry < 25) {
+          retry += 1;
+          timer = window.setTimeout(update, 140);
+        }
+
+        return;
+      }
+
+      el.scrollIntoView({
+        block: "center",
+        inline: "center",
+        behavior: "smooth",
+      });
+
+      window.clearTimeout(timer);
+
+      timer = window.setTimeout(() => {
+        if (cancelled) return;
+
+        const r = el.getBoundingClientRect();
+
+        setRect({
+          top: r.top,
+          left: r.left,
+          width: r.width,
+          height: r.height,
+          right: r.right,
+          bottom: r.bottom,
+        });
+      }, 260);
+    };
+
+    update();
+    interval = window.setInterval(update, 850);
+    window.addEventListener("resize", update);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+      window.removeEventListener("resize", update);
+    };
+  }, [active, step?.target, index]);
+
+  const finish = () => {
+    setHidden(true);
+  };
+
+  if (!active || !mounted) return null;
+
+  const total = steps.length;
+  const isLast = index >= total - 1;
+  const pad = Number(step.padding ?? 10);
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  const box = rect
+    ? (() => {
+        const top = Math.max(8, rect.top - pad);
+        const left = Math.max(8, rect.left - pad);
+        const right = Math.min(vw - 8, rect.right + pad);
+        const bottom = Math.min(vh - 8, rect.bottom + pad);
+
+        return {
+          top,
+          left,
+          right,
+          bottom,
+          width: Math.max(0, right - left),
+          height: Math.max(0, bottom - top),
+        };
+      })()
+    : null;
+
+  const cardWidth = Math.min(390, vw - 28);
+  const cardHeight = 214;
+  const gap = 16;
+
+  let cardPos = {
+    left: "50%",
+    top: "50%",
+    transform: "translate(-50%, -50%)",
+  };
+
+  if (box) {
+    const canBelow = box.bottom + gap + cardHeight <= vh - 12;
+    const canAbove = box.top - gap - cardHeight >= 12;
+    const canRight = box.right + gap + cardWidth <= vw - 12;
+    const canLeft = box.left - gap - cardWidth >= 12;
+
+    if (canBelow || canAbove) {
+      const top = canBelow ? box.bottom + gap : box.top - gap - cardHeight;
+      const left = Math.min(
+        Math.max(14, box.left + box.width / 2 - cardWidth / 2),
+        vw - cardWidth - 14,
+      );
+
+      cardPos = {
+        top,
+        left,
+        transform: "none",
+      };
+    } else if (canRight || canLeft) {
+      const left = canRight ? box.right + gap : box.left - cardWidth - gap;
+      const top = Math.min(
+        Math.max(14, box.top + box.height / 2 - cardHeight / 2),
+        vh - cardHeight - 14,
+      );
+
+      cardPos = {
+        top,
+        left,
+        transform: "none",
+      };
+    } else {
+      cardPos = {
+        left: "50%",
+        bottom: 18,
+        transform: "translateX(-50%)",
+      };
+    }
+  }
+
+  const blockClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const content = (
+    <div style={IT.layer}>
+      <style>{`
+        @keyframes inlineTutorGlow {
+          0%, 100% {
+            box-shadow:
+              0 0 24px rgba(91,255,215,0.48),
+              inset 0 0 12px rgba(91,255,215,0.10);
+          }
+          50% {
+            box-shadow:
+              0 0 42px rgba(91,255,215,0.90),
+              inset 0 0 18px rgba(91,255,215,0.16);
+          }
+        }
+      `}</style>
+      {box ? (
+        <>
+          <div
+            style={{
+              ...IT.dimBlock,
+              top: 0,
+              left: 0,
+              right: 0,
+              height: box.top,
+            }}
+            onMouseDown={blockClick}
+            onClick={blockClick}
+          />
+
+          <div
+            style={{
+              ...IT.dimBlock,
+              top: box.bottom,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+            onMouseDown={blockClick}
+            onClick={blockClick}
+          />
+
+          <div
+            style={{
+              ...IT.dimBlock,
+              top: box.top,
+              left: 0,
+              width: box.left,
+              height: box.height,
+            }}
+            onMouseDown={blockClick}
+            onClick={blockClick}
+          />
+
+          <div
+            style={{
+              ...IT.dimBlock,
+              top: box.top,
+              left: box.right,
+              right: 0,
+              height: box.height,
+            }}
+            onMouseDown={blockClick}
+            onClick={blockClick}
+          />
+
+          <div
+            style={{
+              ...IT.highlight,
+              top: box.top,
+              left: box.left,
+              width: box.width,
+              height: box.height,
+            }}
+          />
+        </>
+      ) : (
+        <div style={IT.fullDim} onMouseDown={blockClick} onClick={blockClick} />
+      )}
+
+      <div style={{ ...IT.cardWrap, width: cardWidth, ...cardPos }}>
+        <div
+          style={IT.card}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={IT.badge}>Tutorial {index + 1}/{total}</div>
+          <div style={IT.title}>{step.title}</div>
+          <div style={IT.body}>{step.body}</div>
+
+          <div style={IT.actions}>
+            <button type="button" style={IT.skipBtn} onClick={finish}>
+              Lewati
+            </button>
+
+            <button
+              type="button"
+              style={IT.primaryBtn}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (isLast) {
+                  finish();
+                  return;
+                }
+
+                setIndex((value) => value + 1);
+              }}
+            >
+              {isLast ? "Oke, paham" : "Lanjut"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(content, document.body);
+}
+
+const IT = {
+  layer: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 29990,
+    pointerEvents: "none",
+  },
+  dimBlock: {
+    position: "fixed",
+    background: "rgba(0,0,0,0.62)",
+    backdropFilter: "blur(2px)",
+    pointerEvents: "auto",
+    transition: "all 260ms ease",
+    zIndex: 29990,
+  },
+  fullDim: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.62)",
+    backdropFilter: "blur(2px)",
+    pointerEvents: "auto",
+    zIndex: 29990,
+  },
+  highlight: {
+    position: "fixed",
+    zIndex: 29991,
+    border: "2px solid rgba(91,255,215,0.98)",
+    borderRadius: 18,
+    boxShadow:
+      "0 0 28px rgba(91,255,215,0.48), inset 0 0 14px rgba(91,255,215,0.10)",
+    background: "rgba(91,255,215,0.025)",
+    pointerEvents: "none",
+    transition: "all 260ms ease",
+    animation: "inlineTutorGlow 1.7s ease-in-out infinite",
+  },
+  cardWrap: {
+    position: "fixed",
+    zIndex: 30000,
+    pointerEvents: "auto",
+    transition: "top 280ms ease, left 280ms ease, bottom 280ms ease, transform 280ms ease",
+  },
+  card: {
+    borderRadius: 22,
+    border: "1px solid rgba(255,255,255,0.12)",
+    background:
+      "radial-gradient(700px 360px at 30% 0%, rgba(91,255,215,0.18), rgba(116,86,255,0.16) 38%, rgba(12,14,24,0.98) 100%)",
+    color: "rgba(245,248,255,0.96)",
+    boxShadow: "0 24px 80px rgba(0,0,0,0.48)",
+    padding: 18,
+    fontFamily:
+      "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial",
+  },
+  badge: {
+    display: "inline-flex",
+    padding: "6px 10px",
+    borderRadius: 999,
+    border: "1px solid rgba(91,255,215,0.22)",
+    background: "rgba(91,255,215,0.10)",
+    fontSize: 12,
+    fontWeight: 900,
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 950,
+    lineHeight: 1.25,
+    marginBottom: 8,
+  },
+  body: {
+    fontSize: 14,
+    lineHeight: 1.65,
+    opacity: 0.9,
+    whiteSpace: "pre-line",
+  },
+  actions: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 10,
+    alignItems: "center",
+    marginTop: 18,
+  },
+  skipBtn: {
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.04)",
+    color: "rgba(245,248,255,0.88)",
+    borderRadius: 12,
+    padding: "10px 13px",
+    fontWeight: 850,
+    cursor: "pointer",
+  },
+  primaryBtn: {
+    border: "none",
+    background: "linear-gradient(135deg, #7c5cff, #32dbc6)",
+    color: "white",
+    borderRadius: 12,
+    padding: "10px 15px",
+    fontWeight: 950,
+    cursor: "pointer",
+    boxShadow: "0 14px 30px rgba(80,90,255,0.28)",
+  },
+};
+
 
 const D = {
   snipList: {

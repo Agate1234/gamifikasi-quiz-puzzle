@@ -30,6 +30,9 @@ function normalizeModules(
       done: item.status === "selesai" || item.status === "done",
       is_unlock: !!item.is_unlock,
       raw_status: item.status,
+      id_user: item.id_user,
+      id_progress: item.id_progress,
+      id_progress_materi: item.id_progress_materi,
     });
 
     return acc;
@@ -52,6 +55,9 @@ function normalizeModules(
       done: item.status === "selesai" || item.status === "done",
       is_unlock: !!item.is_unlock,
       raw_status: item.status,
+      id_user: item.id_user,
+      id_progress_quiz: item.id_progress_quiz,
+      id_progress: item.id_progress,
     });
 
     return acc;
@@ -78,6 +84,9 @@ function normalizeModules(
       done: item.status === "selesai" || item.status === "done",
       is_unlock: !!item.is_unlock,
       raw_status: item.status,
+      id_user: item.id_user,
+      id_progress_puzzle: item.id_progress_puzzle,
+      id_progress: item.id_progress,
     });
 
     return acc;
@@ -124,7 +133,13 @@ function normalizeModules(
       level: `Level ${item.level}`,
       levelNumber: Number(item.level || 1),
       xp: Number(item.exp_modul || 0),
-      status: isDone ? "done" : isLocked ? "locked" : isActive ? "active" : "active",
+      status: isDone
+        ? "done"
+        : isLocked
+          ? "locked"
+          : isActive
+            ? "active"
+            : "active",
       description: item.deskripsi_modul || "-",
       is_unlock: !!item.is_unlock,
 
@@ -203,8 +218,6 @@ export default function RoadmapMahasiswa() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalModule, setModalModule] = useState(null);
 
-  const [tutorialOpen, setTutorialOpen] = useState(false);
-  const [tutorialStep, setTutorialStep] = useState(0);
 
   useEffect(() => {
     const fetchRoadmap = async () => {
@@ -255,25 +268,22 @@ export default function RoadmapMahasiswa() {
   useEffect(() => {
     if (loading || modules.length < 1) return;
 
+    const savedRole = localStorage.getItem("game_role");
+    if (savedRole) return;
+
     const idUser = localStorage.getItem("id_user") || "guest";
-    const tutorialKey = `roadmap_tutorial_done_${idUser}`;
-    const alreadyDone = localStorage.getItem(tutorialKey) === "true";
+    const setupKey = `roadmap_role_setup_opened_${idUser}`;
 
     const unlockedModules = modules.filter((mod) => mod.status !== "locked");
-
     const highestUnlockedLevel = unlockedModules.reduce((max, mod) => {
       return Math.max(max, Number(mod.levelNumber || 1));
     }, 1);
 
-    if (alreadyDone) return;
+    if (highestUnlockedLevel >= 2) return;
+    if (localStorage.getItem(setupKey) === "true") return;
 
-    if (highestUnlockedLevel >= 2) {
-      localStorage.setItem(tutorialKey, "true");
-      return;
-    }
-
-    setTutorialOpen(true);
-    setTutorialStep(0);
+    localStorage.setItem(setupKey, "true");
+    window.dispatchEvent(new Event("open-profile-modal"));
   }, [loading, modules]);
 
   const buildModulePageData = (mod) => {
@@ -291,6 +301,9 @@ export default function RoadmapMahasiswa() {
       ...item,
       highlight: false,
     }));
+
+    const allKuis = modules.flatMap((item) => item.kuis || []);
+    const allPuzzle = modules.flatMap((item) => item.puzzle || []);
 
     const activities = buildActivitiesFromModuleItems(materi, kuis, puzzle);
     const totalActivities = activities.length;
@@ -315,6 +328,8 @@ export default function RoadmapMahasiswa() {
       materi,
       kuis,
       puzzle,
+      allKuis,
+      allPuzzle,
     };
   };
 
@@ -325,36 +340,6 @@ export default function RoadmapMahasiswa() {
   };
 
   const closeModule = () => setModalOpen(false);
-
-  const finishTutorial = () => {
-    const idUser = localStorage.getItem("id_user") || "guest";
-    const tutorialKey = `roadmap_tutorial_done_${idUser}`;
-
-    localStorage.setItem(tutorialKey, "true");
-    setTutorialOpen(false);
-    setTutorialStep(0);
-  };
-
-  const closeTutorialForNow = () => {
-    setTutorialOpen(false);
-    setTutorialStep(0);
-  };
-
-  const handleTutorialTargetClick = () => {
-    if (tutorialStep < 2) {
-      setTutorialStep((prev) => prev + 1);
-      return;
-    }
-
-    const firstUnlockedModule =
-      modules.find((mod) => mod.status !== "locked") || modules[0];
-
-    finishTutorial();
-
-    if (firstUnlockedModule) {
-      openModule(firstUnlockedModule);
-    }
-  };
 
   const applyModuleProgressUpdate = (updatedModule) => {
     if (!updatedModule?.id) return;
@@ -547,13 +532,6 @@ export default function RoadmapMahasiswa() {
         </div>
       </main>
 
-      <RoadmapSpotlightTutorial
-        open={tutorialOpen}
-        step={tutorialStep}
-        onClose={closeTutorialForNow}
-        onSkip={finishTutorial}
-        onTargetClick={handleTutorialTargetClick}
-      />
 
       <ModulePage
         open={modalOpen}
@@ -643,13 +621,7 @@ function ModuleCard({ mod, selected, onClick, tourTarget }) {
   );
 }
 
-function RoadmapSpotlightTutorial({
-  open,
-  step,
-  onClose,
-  onSkip,
-  onTargetClick,
-}) {
+function RoadmapSpotlightTutorial({ open, step, onTargetClick }) {
   const [targetRect, setTargetRect] = useState(null);
 
   const steps = [
@@ -658,21 +630,24 @@ function RoadmapSpotlightTutorial({
       icon: "🗺️",
       title: "Ini jalur roadmap belajar",
       text: "Mulai dari modul pertama yang aktif, lalu lanjutkan sampai modul berikutnya terbuka.",
-      actionText: "Paham, lanjut",
+      actionText: "Oke, paham",
+      forceTarget: false,
+    },
+    {
+      target: "profile-role",
+      icon: "🧙",
+      title: "Atur profil dan pilih role",
+      text: "Di profil kamu bisa edit email, ganti password, dan pilih role game. Role ini akan memberi skill khusus saat mengerjakan quiz.",
+      actionText: "Klik profil yang dikotak",
+      forceTarget: true,
     },
     {
       target: "first-module",
       icon: "🎯",
       title: "Klik modul yang terbuka",
-      text: "Klik modul ini untuk masuk ke detail. Di dalamnya ada materi, kuis, dan puzzle yang harus diselesaikan.",
-      actionText: "Klik modul ini",
-    },
-    {
-      target: "first-module",
-      icon: "🚀",
-      title: "Mulai belajar sekarang",
-      text: "Kerjakan aktivitasnya satu per satu. Kalau sudah selesai, progress dan XP kamu akan naik.",
-      actionText: "Mulai belajar",
+      text: "Setelah role dipilih, mulai dari modul pertama yang aktif. Klik modul ini untuk masuk ke detail belajar.",
+      actionText: "Klik modul yang dikotak",
+      forceTarget: true,
     },
   ];
 
@@ -687,10 +662,7 @@ function RoadmapSpotlightTutorial({
     const scrollToFirstModule = () => {
       const firstModule = document.querySelector(`[data-tour="first-module"]`);
 
-      if (!firstModule) {
-        setTargetRect(null);
-        return;
-      }
+      if (!firstModule) return;
 
       const rect = firstModule.getBoundingClientRect();
       const absoluteTop = rect.top + window.pageYOffset;
@@ -747,7 +719,9 @@ function RoadmapSpotlightTutorial({
     };
 
     const updateRect = () => {
-      scrollToFirstModule();
+      if (current.target === "roadmap-area" || current.target === "first-module") {
+        scrollToFirstModule();
+      }
 
       timer1 = setTimeout(readTargetRect, 100);
       timer2 = setTimeout(readTargetRect, 520);
@@ -837,7 +811,6 @@ function RoadmapSpotlightTutorial({
           width: "100%",
           height: spotlight.top,
         }}
-        onClick={onClose}
       />
 
       <div
@@ -848,7 +821,6 @@ function RoadmapSpotlightTutorial({
           width: spotlight.left,
           height: spotlight.height,
         }}
-        onClick={onClose}
       />
 
       <div
@@ -859,7 +831,6 @@ function RoadmapSpotlightTutorial({
           width: Math.max(0, viewportW - holeRight),
           height: spotlight.height,
         }}
-        onClick={onClose}
       />
 
       <div
@@ -870,7 +841,6 @@ function RoadmapSpotlightTutorial({
           width: "100%",
           height: Math.max(0, viewportH - holeBottom),
         }}
-        onClick={onClose}
       />
 
       <div
@@ -883,17 +853,44 @@ function RoadmapSpotlightTutorial({
         }}
       />
 
-      <button
-        style={{
-          ...tourStyles.clickArea,
-          top: spotlight.top,
-          left: spotlight.left,
-          width: spotlight.width,
-          height: spotlight.height,
-        }}
-        onClick={onTargetClick}
-        aria-label="Klik bagian tutorial"
-      />
+      {!current.forceTarget ? (
+        <div
+          style={{
+            ...tourStyles.spotlightBlocker,
+            top: spotlight.top,
+            left: spotlight.left,
+            width: spotlight.width,
+            height: spotlight.height,
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          aria-hidden="true"
+        />
+      ) : null}
+
+      {current.forceTarget ? (
+        <button
+          style={{
+            ...tourStyles.clickArea,
+            top: spotlight.top,
+            left: spotlight.left,
+            width: spotlight.width,
+            height: spotlight.height,
+          }}
+          onClick={onTargetClick}
+          aria-label="Klik bagian tutorial"
+        />
+      ) : null}
 
       <div
         style={{
@@ -908,9 +905,6 @@ function RoadmapSpotlightTutorial({
             {step + 1}/{steps.length}
           </div>
 
-          <button style={tourStyles.closeBtn} onClick={onClose}>
-            ✕
-          </button>
         </div>
 
         <div style={tourStyles.icon}>{current.icon}</div>
@@ -919,13 +913,13 @@ function RoadmapSpotlightTutorial({
         <div style={tourStyles.text}>{current.text}</div>
 
         <div style={tourStyles.footer}>
-          <button style={tourStyles.skipBtn} onClick={onSkip}>
-            Lewati
-          </button>
-
-          <button style={tourStyles.primaryBtn} onClick={onTargetClick}>
-            {current.actionText}
-          </button>
+          {current.forceTarget ? (
+            <div style={tourStyles.forceText}>{current.actionText}</div>
+          ) : (
+            <button style={tourStyles.primaryBtn} onClick={onTargetClick}>
+              {current.actionText}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -955,6 +949,16 @@ const tourStyles = {
     pointerEvents: "none",
     transition: "all 220ms ease",
     animation: "tourGlowPulse 1.4s ease-in-out infinite",
+    zIndex: 1,
+  },
+
+  spotlightBlocker: {
+    position: "absolute",
+    border: "none",
+    background: "transparent",
+    cursor: "default",
+    pointerEvents: "auto",
+    zIndex: 2,
   },
 
   clickArea: {
@@ -963,10 +967,12 @@ const tourStyles = {
     background: "transparent",
     cursor: "pointer",
     pointerEvents: "auto",
+    zIndex: 2,
   },
 
   bubble: {
     position: "absolute",
+    zIndex: 3,
     borderRadius: 22,
     border: "1px solid rgba(255,255,255,0.12)",
     background:
@@ -1033,7 +1039,7 @@ const tourStyles = {
 
   footer: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     alignItems: "center",
     gap: 10,
     marginTop: 16,
@@ -1047,6 +1053,16 @@ const tourStyles = {
     color: "rgba(235,240,255,0.72)",
     cursor: "pointer",
     fontWeight: 800,
+  },
+
+  forceText: {
+    padding: "10px 14px",
+    borderRadius: 13,
+    border: "1px dashed rgba(60,255,201,0.34)",
+    background: "rgba(60,255,201,0.08)",
+    color: "rgba(235,240,255,0.88)",
+    fontSize: 12,
+    fontWeight: 900,
   },
 
   primaryBtn: {

@@ -135,7 +135,10 @@ export const getNextSoalMahasiswaApi = async (idQuiz) => {
 
 export const submitJawabanMahasiswaApi = async (idQuiz, payload) => {
   try {
-    const response = await api.post(`/roadmap/quiz-map/quiz/${idQuiz}/submit`, payload);
+    const response = await api.post(
+      `/roadmap/quiz-map/quiz/${idQuiz}/submit`,
+      payload,
+    );
     return response;
   } catch (error) {
     return (
@@ -144,6 +147,86 @@ export const submitJawabanMahasiswaApi = async (idQuiz, payload) => {
         data: {
           success: false,
           message: "Gagal mengirim jawaban quiz.",
+        },
+      }
+    );
+  }
+};
+
+export const enhancedVisionPreviewApi = async (idQuiz, payload) => {
+  try {
+    const response = await api.post(
+      `/roadmap/quiz-map/quiz/${idQuiz}/enhanced-vision`,
+      payload,
+    );
+    return response;
+  } catch (error) {
+    return (
+      error.response || {
+        status: 500,
+        data: {
+          success: false,
+          message: "Gagal memakai Enhanced Vision.",
+        },
+      }
+    );
+  }
+};
+
+export const deductionRevealApi = async (idQuiz, payload) => {
+  try {
+    const response = await api.post(
+      `/roadmap/quiz-map/quiz/${idQuiz}/deduction`,
+      payload,
+    );
+    return response;
+  } catch (error) {
+    return (
+      error.response || {
+        status: 500,
+        data: {
+          success: false,
+          message: "Gagal memakai Deduction.",
+        },
+      }
+    );
+  }
+};
+
+export const bodyLanguageAnalysisApi = async (idQuiz, payload) => {
+  try {
+    const response = await api.post(
+      `/roadmap/quiz-map/quiz/${idQuiz}/body-language-analysis`,
+      payload,
+    );
+    return response;
+  } catch (error) {
+    return (
+      error.response || {
+        status: 500,
+        data: {
+          success: false,
+          message: "Gagal memakai Body Language Analysis.",
+        },
+      }
+    );
+  }
+};
+
+export const prisonerEscapeMethodApi = async (idQuiz, payload) => {
+  try {
+    const response = await api.post(
+      `/roadmap/quiz-map/quiz/${idQuiz}/prisoner-escape-method`,
+      payload,
+    );
+    return response;
+  } catch (error) {
+    return (
+      error.response || {
+        status: 500,
+        data: {
+          success: false,
+          message: "Gagal memakai Escape Method.",
         },
       }
     );

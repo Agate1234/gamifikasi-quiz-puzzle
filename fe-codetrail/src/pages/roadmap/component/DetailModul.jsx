@@ -6,11 +6,78 @@ import HasilPuzzle from "./puzzle/HasilPuzzle";
 import DetailPuzzleModal from "./puzzle/DetailPuzzle";
 import { getMapPuzzleByIdApi } from "../../../components/api/puzzlemap";
 import { useNavigate } from "react-router-dom";
-import { getMapMateriByIdApi } from "../../../components/api/materimap";
+import {
+  getMapMateriByIdApi,
+  updateProgressMateriDoneApi,
+} from "../../../components/api/materimap";
 import HasilQuiz from "./quiz/HasilQuiz";
 import DetailQuizModal from "./quiz/DetailQuiz";
 import { getMapQuizByIdApi } from "../../../components/api/quizmap";
 import { getNextSoalMahasiswaApi } from "../../../components/api/soal";
+
+
+function normalizeStatus(value) {
+  return String(value || "").toLowerCase().trim();
+}
+
+function isProgressDone(item) {
+  const status = normalizeStatus(item?.raw_status || item?.status);
+  return item?.done === true || status === "done" || status === "selesai";
+}
+
+function getPuzzleType(item) {
+  return String(item?.tipe_puzzle || item?.type || "drag_drop")
+    .toLowerCase()
+    .trim();
+}
+
+function getNumberId(item, keys = []) {
+  for (const key of keys) {
+    const value = Number(item?.[key]);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+
+  const rawId = String(item?.id || "").replace(/[^0-9]/g, "");
+  const value = Number(rawId);
+
+  return Number.isFinite(value) ? value : 0;
+}
+
+function shouldShowQuizTutorByDb(currentQuiz, allQuiz = []) {
+  const currentId = getNumberId(currentQuiz, ["id_quiz"]);
+
+  if (!currentQuiz || isProgressDone(currentQuiz)) return false;
+
+  const previousDoneQuiz = (allQuiz || []).some((item) => {
+    const itemId = getNumberId(item, ["id_quiz"]);
+    if (!itemId || !currentId) return false;
+
+    return itemId < currentId && isProgressDone(item);
+  });
+
+  return !previousDoneQuiz;
+}
+
+function shouldShowPuzzleTutorByDb(currentPuzzle, allPuzzle = []) {
+  const currentId = getNumberId(currentPuzzle, ["id_puzzle"]);
+  const currentType = getPuzzleType(currentPuzzle);
+
+  if (!currentPuzzle || isProgressDone(currentPuzzle)) return false;
+
+  const previousDoneSameType = (allPuzzle || []).some((item) => {
+    const itemId = getNumberId(item, ["id_puzzle"]);
+    if (!itemId || !currentId) return false;
+
+    return (
+      itemId < currentId &&
+      getPuzzleType(item) === currentType &&
+      isProgressDone(item)
+    );
+  });
+
+  return !previousDoneSameType;
+}
+
 
 function NodePathSection({ list, tab, onPrimaryAction }) {
   return (
@@ -185,6 +252,8 @@ export default function ModulePage({
   const [materiLoading, setMateriLoading] = useState(false);
   const [showQuizResult, setShowQuizResult] = useState(false);
   const [quizResultData, setQuizResultData] = useState(null);
+  const [quizWorkTutorActive, setQuizWorkTutorActive] = useState(false);
+  const [puzzleWorkTutorActive, setPuzzleWorkTutorActive] = useState(false);
 
   const navigate = useNavigate();
 
@@ -214,15 +283,32 @@ export default function ModulePage({
     };
   }, [open, onClose]);
 
-  console.log("MODULE DETAIL:", module);
-  console.log("PUZZLE DATA:", module?.puzzle);
-
   const list = useMemo(() => {
     if (!localModule) return [];
     if (tab === "kuis") return localModule.kuis || [];
     if (tab === "puzzle") return localModule.puzzle || [];
     return localModule.materi || [];
   }, [tab, localModule]);
+
+  const firstAvailableMateri = useMemo(() => {
+    return (localModule?.materi || []).find((item) => item.status !== "preview" && item.is_unlock !== false) || (localModule?.materi || [])[0];
+  }, [localModule]);
+
+  const firstAvailableQuiz = useMemo(() => {
+    return (localModule?.kuis || []).find((item) => item.status !== "preview" && item.is_unlock !== false) || (localModule?.kuis || [])[0];
+  }, [localModule]);
+
+  const firstDoneQuiz = useMemo(() => {
+    return (localModule?.kuis || []).find((item) => item.done || item.raw_status === "done" || item.status === "done") || firstAvailableQuiz;
+  }, [localModule, firstAvailableQuiz]);
+
+  const firstAvailablePuzzle = useMemo(() => {
+    return (localModule?.puzzle || []).find((item) => item.status !== "preview" && item.is_unlock !== false) || (localModule?.puzzle || [])[0];
+  }, [localModule]);
+
+  const firstDonePuzzle = useMemo(() => {
+    return (localModule?.puzzle || []).find((item) => item.done || item.raw_status === "done" || item.status === "done") || firstAvailablePuzzle;
+  }, [localModule, firstAvailablePuzzle]);
 
   const moduleStats = useMemo(() => {
     const materi = localModule?.materi || [];
@@ -283,7 +369,25 @@ export default function ModulePage({
       const response = await getMapMateriByIdApi(rawId, params);
 
       if (response?.status === 200 && response?.data?.success) {
-        setActiveMateri(response.data.data);
+        const m = response.data.data;
+
+        setActiveMateri({
+          ...m,
+          id: `materi-${m.id_materi}`,
+          id_progress: m.id_progress,
+          id_materi: m.id_materi,
+          id_modul: m.id_modul,
+          title: m.judul_materi || "Materi",
+          judul_materi: m.judul_materi || "Materi",
+          desc: m.deskripsi_materi || "-",
+          deskripsi_materi: m.deskripsi_materi || "-",
+          xp: Number(m.exp_materi || 0),
+          exp_materi: Number(m.exp_materi || 0),
+          status: m.status || (m.is_unlock ? "not done" : "locked"),
+          raw_status: m.status || (m.is_unlock ? "not done" : "locked"),
+          is_unlock: !!m.is_unlock,
+          done: m.status === "done",
+        });
         setMateriOpen(true);
       }
     } catch (error) {
@@ -327,7 +431,10 @@ export default function ModulePage({
           status: q.is_unlock ? "mulai" : "preview",
           raw_status: q.status || "-",
           is_unlock: !!q.is_unlock,
+          done: q.status === "done" || q.status === "selesai",
           id_modul: q.id_modul,
+          id_user: q.id_user,
+          id_progress_quiz: q.id_progress_quiz,
 
           totalQuestion: Number(q.totalQuestion || q.total_question || 0),
           accuracy: q.accuracy || 0,
@@ -391,6 +498,8 @@ export default function ModulePage({
           status: p.status || "-",
           raw_status: p.status || "-",
           is_unlock: !!p.is_unlock,
+          done: p.status === "done" || p.status === "selesai",
+          id_user: p.id_user,
 
           type: p.tipe_puzzle || "drag_drop",
           tipe_puzzle: p.tipe_puzzle || "drag_drop",
@@ -488,6 +597,12 @@ export default function ModulePage({
   setQuizTitle(selectedQuiz.title || "Kuis");
   setActiveQuizId(selectedQuiz.id_quiz);
   setQuizXp(Number(selectedQuiz?.xp || 0));
+  const shouldShowWorkTutor = shouldShowQuizTutorByDb(
+    selectedQuiz,
+    localModule?.allKuis || localModule?.kuis || [],
+  );
+
+  setQuizWorkTutorActive(shouldShowWorkTutor);
   setQuizOpen(true);
 };
 
@@ -525,6 +640,12 @@ export default function ModulePage({
     setPuzzleType(
       selectedPuzzle.tipe_puzzle || selectedPuzzle.type || "drag_drop",
     );
+    const shouldShowWorkTutor = shouldShowPuzzleTutorByDb(
+      selectedPuzzle,
+      localModule?.allPuzzle || localModule?.puzzle || [],
+    );
+
+    setPuzzleWorkTutorActive(shouldShowWorkTutor);
     setShowPuzzle(true);
   };
 
@@ -533,7 +654,101 @@ export default function ModulePage({
 
     setActivePuzzle(item);
     setPuzzleType(type);
+    setPuzzleWorkTutorActive(
+      shouldShowPuzzleTutorByDb(item, localModule?.allPuzzle || localModule?.puzzle || []),
+    );
     setShowPuzzle(true);
+  };
+
+
+  const updateMateriUnlockUI = (finishedMateri, res = {}) => {
+    setLocalModule((prev) => {
+      if (!prev?.materi) return prev;
+
+      const finishedId = finishedMateri?.id_materi;
+
+      const currentIndex = prev.materi.findIndex((item) => {
+        return Number(item.id_materi) === Number(finishedId);
+      });
+
+      const nextModule = {
+        ...prev,
+        materi: prev.materi.map((item, index) => {
+          const isCurrentMateri = Number(item.id_materi) === Number(finishedId);
+          const isNextMateri = currentIndex !== -1 && index === currentIndex + 1;
+
+          if (isCurrentMateri) {
+            return {
+              ...item,
+              done: true,
+              status: "done",
+              raw_status: "done",
+              is_unlock: true,
+              hasil: res,
+            };
+          }
+
+          if (isNextMateri) {
+            return {
+              ...item,
+              done: false,
+              status: "not done",
+              raw_status: "not done",
+              is_unlock: true,
+            };
+          }
+
+          return item;
+        }),
+      };
+
+      notifyModuleProgressChange(nextModule);
+
+      return nextModule;
+    });
+  };
+
+  const handleFinishMateri = async () => {
+    if (!activeMateri) return;
+
+    const isDone =
+      activeMateri.raw_status === "done" || activeMateri.status === "done";
+
+    if (isDone) {
+      setMateriOpen(false);
+      return;
+    }
+
+    if (!activeMateri.id_progress) {
+      console.error("id_progress materi tidak ada:", activeMateri);
+      return;
+    }
+
+    try {
+      setMateriLoading(true);
+
+      const response = await updateProgressMateriDoneApi(activeMateri.id_progress);
+
+      if (response?.status === 200 && response?.data?.success) {
+        const current = response.data.data?.current || {};
+
+        updateMateriUnlockUI(activeMateri, current);
+
+        setActiveMateri((prev) => ({
+          ...prev,
+          done: true,
+          status: "done",
+          raw_status: "done",
+          is_unlock: true,
+        }));
+
+        setMateriOpen(false);
+      }
+    } catch (error) {
+      console.log("Gagal menyelesaikan materi:", error);
+    } finally {
+      setMateriLoading(false);
+    }
   };
 
   const updateQuizUnlockUI = (finishedQuiz, res) => {
@@ -575,6 +790,19 @@ export default function ModulePage({
         }
 
         return item;
+      }),
+      allKuis: (prev.allKuis || prev.kuis || []).map((item) => {
+        if (Number(item.id_quiz) !== Number(finishedId)) return item;
+
+        return {
+          ...item,
+          done: true,
+          status: "done",
+          raw_status: "done",
+          is_unlock: true,
+          score: res.score100,
+          hasil: res,
+        };
       }),
     };
 
@@ -626,6 +854,21 @@ export default function ModulePage({
 
         return item;
       }),
+      allPuzzle: (prev.allPuzzle || prev.puzzle || []).map((item) => {
+        if (Number(item.id_puzzle) !== Number(finishedId)) return item;
+
+        return {
+          ...item,
+          done: true,
+          status: "done",
+          raw_status: "done",
+          is_unlock: true,
+          attempt: res.attempt,
+          waktu: res.waktu,
+          jawaban: res.jawaban,
+          hasil: res.hasil,
+        };
+      }),
     };
 
     notifyModuleProgressChange(nextModule);
@@ -659,7 +902,7 @@ export default function ModulePage({
           </div>
 
           <div style={M.content}>
-            <section style={M.hero}>
+            <section style={M.hero} data-tutor="module-hero">
               <div style={M.heroLeft}>
                 <div style={M.heroTags}>
                   <span style={M.tag}>{module?.level || "LEVEL"}</span>
@@ -684,7 +927,7 @@ export default function ModulePage({
                   </div>
                 </div>
 
-                <div style={M.tabs}>
+                <div style={M.tabs} data-tutor="module-tabs">
                   <TabButton
                     label="Materi"
                     active={tab === "materi"}
@@ -749,7 +992,7 @@ export default function ModulePage({
                 ...
               </div>
             ) : (
-              <div style={M.list}>
+              <div style={M.list} data-tutor="module-list">
                 {list.length > 0 ? (
                   <NodePathSection
                     list={list}
@@ -778,7 +1021,7 @@ export default function ModulePage({
         materi={activeMateri}
         moduleTitle={module?.title}
         onClose={closeMateri}
-        onNext={() => closeMateri()}
+        onNext={handleFinishMateri}
       />
 
       <DetailQuizModal
@@ -803,6 +1046,10 @@ export default function ModulePage({
         quizTitle={quizTitle}
         quizXp={quizXp}
         onClose={() => setQuizOpen(false)}
+        tutorActive={quizWorkTutorActive}
+        onTutorQuizFinished={() => {
+          setQuizWorkTutorActive(false);
+        }}
         onFinish={(quizResult) => {
           updateQuizUnlockUI(
             {
@@ -822,6 +1069,10 @@ export default function ModulePage({
         xpPotential={Number(activePuzzle?.xp || 0)}
         secondsTotal={Number(activePuzzle?.waktu || 0) || 5 * 60}
         onClose={() => setShowPuzzle(false)}
+        tutorActive={puzzleWorkTutorActive}
+        onTutorPuzzleFinished={() => {
+          setPuzzleWorkTutorActive(false);
+        }}
         onFinish={(res) => {
           updatePuzzleUnlockUI(activePuzzle, res);
 
@@ -867,6 +1118,7 @@ export default function ModulePage({
           setQuizResultData(null);
         }}
       />
+
     </>
   );
 }
@@ -883,6 +1135,11 @@ function TabButton({ label, active, onClick }) {
 }
 
 const M = {
+  disabledBackBtn: {
+    opacity: 0.45,
+    cursor: "not-allowed",
+  },
+
   overlay: {
     position: "fixed",
     inset: 0,
