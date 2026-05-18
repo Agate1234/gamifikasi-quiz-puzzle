@@ -924,6 +924,10 @@ export default function QuizFullscreen({
           review: payload.review || [],
         });
 
+        finalResult.playWinEffect = true;
+        finalResult.justFinished = true;
+        finalResult.source = "finish";
+
         setHealth(Number(payload.score || 0));
         setResult(finalResult);
         setShowResult(true);
@@ -2359,6 +2363,10 @@ setHealth(Math.min(INITIAL_HEALTH, baseHealth));
           timeText,
           review: payload.review || [],
         });
+
+        finalResult.playWinEffect = true;
+        finalResult.justFinished = true;
+        finalResult.source = "finish";
 
         setResult(finalResult);
         setShowResult(true);

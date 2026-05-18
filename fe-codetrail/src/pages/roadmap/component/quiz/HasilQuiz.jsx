@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 export default function HasilQuiz({
   open,
@@ -17,6 +17,29 @@ export default function HasilQuiz({
   const timeText = result?.timeText ?? "00:00";
   const totalQ = result?.totalQuestions ?? questions.length ?? 0;
   const review = result?.review || [];
+  const [showParty, setShowParty] = useState(false);
+
+  const shouldPlayWinEffect =
+    open &&
+    Number(score || 0) >= 70 &&
+    (result?.playWinEffect === true ||
+      result?.justFinished === true ||
+      result?.source === "finish");
+
+  useEffect(() => {
+    if (!shouldPlayWinEffect) {
+      setShowParty(false);
+      return undefined;
+    }
+
+    setShowParty(true);
+
+    const timer = window.setTimeout(() => {
+      setShowParty(false);
+    }, 2300);
+
+    return () => window.clearTimeout(timer);
+  }, [shouldPlayWinEffect, result]);
 
   const keyList = useMemo(() => {
     return (questions || []).map((q, i) => {
@@ -37,6 +60,8 @@ export default function HasilQuiz({
 
   return (
     <div style={R.wrap}>
+      {showParty ? <QuizPartyFromBottom /> : null}
+
       <div style={R.content}>
         <div style={R.trophyCircle}>🏆</div>
 
@@ -132,6 +157,113 @@ export default function HasilQuiz({
           “Learning never exhausts the mind.” — Leonardo da Vinci
         </div>
       </div>
+    </div>
+  );
+}
+
+function QuizPartyFromBottom() {
+  const pieces = [
+    { left: 5, delay: 0.00, duration: 1.85, size: 8, rotate: 18, color: "#5bffd7" },
+    { left: 9, delay: 0.10, duration: 2.05, size: 7, rotate: -24, color: "#9b5cff" },
+    { left: 14, delay: 0.18, duration: 1.95, size: 8, rotate: 36, color: "#ffd166" },
+    { left: 19, delay: 0.05, duration: 2.15, size: 9, rotate: -42, color: "#ff6b9a" },
+    { left: 24, delay: 0.22, duration: 1.9, size: 7, rotate: 28, color: "#6f7cff" },
+    { left: 29, delay: 0.12, duration: 2.08, size: 8, rotate: -18, color: "#5bffd7" },
+    { left: 34, delay: 0.02, duration: 1.9, size: 8, rotate: 50, color: "#ffd166" },
+    { left: 39, delay: 0.26, duration: 2.18, size: 7, rotate: -35, color: "#ff6b9a" },
+    { left: 44, delay: 0.15, duration: 1.92, size: 9, rotate: 21, color: "#9b5cff" },
+    { left: 49, delay: 0.08, duration: 2.08, size: 8, rotate: -52, color: "#5bffd7" },
+    { left: 54, delay: 0.20, duration: 2.14, size: 8, rotate: 44, color: "#ffd166" },
+    { left: 59, delay: 0.11, duration: 1.95, size: 7, rotate: -14, color: "#6f7cff" },
+    { left: 64, delay: 0.25, duration: 2.1, size: 9, rotate: 31, color: "#ff6b9a" },
+    { left: 69, delay: 0.14, duration: 1.88, size: 8, rotate: -46, color: "#5bffd7" },
+    { left: 74, delay: 0.06, duration: 2.12, size: 7, rotate: 15, color: "#9b5cff" },
+    { left: 79, delay: 0.24, duration: 1.94, size: 8, rotate: -28, color: "#ffd166" },
+    { left: 84, delay: 0.13, duration: 2.16, size: 8, rotate: 39, color: "#6f7cff" },
+    { left: 89, delay: 0.19, duration: 2.0, size: 9, rotate: -19, color: "#ff6b9a" },
+    { left: 94, delay: 0.04, duration: 2.08, size: 7, rotate: 52, color: "#5bffd7" },
+  ];
+
+  const streamers = [
+    { left: 10, delay: 0.02, duration: 2.05, color: "#5bffd7" },
+    { left: 23, delay: 0.18, duration: 2.18, color: "#ff6b9a" },
+    { left: 36, delay: 0.08, duration: 2.0, color: "#ffd166" },
+    { left: 50, delay: 0.24, duration: 2.22, color: "#9b5cff" },
+    { left: 64, delay: 0.14, duration: 2.08, color: "#5bffd7" },
+    { left: 78, delay: 0.04, duration: 2.14, color: "#6f7cff" },
+    { left: 90, delay: 0.20, duration: 2.06, color: "#ff6b9a" },
+  ];
+
+  return (
+    <div style={R.partyLayer} aria-hidden="true">
+      <style>{`
+        @keyframes quizPartyRiseFromBottom {
+          0% {
+            transform: translate3d(0, 76px, 0) rotate(0deg) scale(0.94);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          70% {
+            opacity: 0.92;
+          }
+          100% {
+            transform: translate3d(var(--drift), -108vh, 0) rotate(var(--spin)) scale(1.04);
+            opacity: 0;
+          }
+        }
+
+        @keyframes quizPartyStreamerRise {
+          0% {
+            transform: translate3d(0, 86px, 0) rotate(0deg);
+            opacity: 0;
+          }
+          12% {
+            opacity: 0.95;
+          }
+          72% {
+            opacity: 0.85;
+          }
+          100% {
+            transform: translate3d(var(--drift), -108vh, 0) rotate(var(--spin));
+            opacity: 0;
+          }
+        }
+      `}</style>
+
+      {pieces.map((piece, index) => (
+        <span
+          key={`quiz-party-piece-${index}`}
+          style={{
+            ...R.partyPiece,
+            left: `${piece.left}%`,
+            width: piece.size,
+            height: piece.size * 1.35,
+            background: piece.color,
+            borderRadius: index % 3 === 0 ? 999 : 2,
+            animationDelay: `${piece.delay}s`,
+            animationDuration: `${piece.duration}s`,
+            "--drift": `${index % 2 === 0 ? 38 : -38}px`,
+            "--spin": `${piece.rotate * 8}deg`,
+          }}
+        />
+      ))}
+
+      {streamers.map((streamer, index) => (
+        <span
+          key={`quiz-party-streamer-${index}`}
+          style={{
+            ...R.partyStreamer,
+            left: `${streamer.left}%`,
+            borderColor: streamer.color,
+            animationDelay: `${streamer.delay}s`,
+            animationDuration: `${streamer.duration}s`,
+            "--drift": `${index % 2 === 0 ? -52 : 52}px`,
+            "--spin": `${index % 2 === 0 ? -390 : 390}deg`,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -301,9 +433,47 @@ const R = {
   },
 
   content: {
+    position: "relative",
+    zIndex: 1,
     width: "min(980px, 94vw)",
     margin: "0 auto",
     textAlign: "center",
+  },
+
+  partyLayer: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 0,
+    pointerEvents: "none",
+    overflow: "hidden",
+  },
+
+  partyPiece: {
+    position: "absolute",
+    bottom: -30,
+    display: "block",
+    opacity: 0,
+    animationName: "quizPartyRiseFromBottom",
+    animationTimingFunction: "cubic-bezier(0.18, 0.72, 0.32, 1)",
+    animationIterationCount: 1,
+    animationFillMode: "forwards",
+    willChange: "transform, opacity",
+  },
+
+  partyStreamer: {
+    position: "absolute",
+    bottom: -48,
+    width: 18,
+    height: 34,
+    borderStyle: "solid",
+    borderWidth: "0 0 3px 3px",
+    borderRadius: "0 0 0 16px",
+    opacity: 0,
+    animationName: "quizPartyStreamerRise",
+    animationTimingFunction: "cubic-bezier(0.2, 0.74, 0.28, 1)",
+    animationIterationCount: 1,
+    animationFillMode: "forwards",
+    willChange: "transform, opacity",
   },
 
   trophyCircle: {
