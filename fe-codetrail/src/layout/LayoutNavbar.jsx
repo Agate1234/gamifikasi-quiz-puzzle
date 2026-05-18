@@ -1,13 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Avatar,
-  Button,
-  Form,
-  Input,
-  Layout,
-  Modal,
-  Typography,
-} from "antd";
+import { Avatar, Button, Form, Input, Layout, Modal, Typography } from "antd";
 import {
   BarChartOutlined,
   TrophyOutlined,
@@ -453,7 +445,6 @@ const GAME_ROLES = Object.entries(ROLE_SKILL_CONFIGS).map(([key, value]) => ({
   })),
 }));
 
-
 function getUserName(session) {
   return (
     localStorage.getItem("nama_user") ||
@@ -485,7 +476,8 @@ export default function LayoutNavbar({ session }) {
   const [selectedGameRole, setSelectedGameRole] = useState(null);
   const [profileTutorialOpen, setProfileTutorialOpen] = useState(false);
   const [profileTutorialStep, setProfileTutorialStep] = useState(0);
-  const [openedFromRoadmapTutorial, setOpenedFromRoadmapTutorial] = useState(false);
+  const [openedFromRoadmapTutorial, setOpenedFromRoadmapTutorial] =
+    useState(false);
   const [appNotif, setAppNotif] = useState(null);
 
   const [form] = Form.useForm();
@@ -571,7 +563,13 @@ export default function LayoutNavbar({ session }) {
     if (profileTutorialStep === 0 && selectedGameRole) {
       setProfileTutorialStep(1);
     }
-  }, [profileOpen, profileTutorialOpen, profileTutorialStep, selectedGameRole, profile?.game_role]);
+  }, [
+    profileOpen,
+    profileTutorialOpen,
+    profileTutorialStep,
+    selectedGameRole,
+    profile?.game_role,
+  ]);
 
   const menus = [
     {
@@ -661,7 +659,9 @@ export default function LayoutNavbar({ session }) {
     setProfileTutorialOpen(false);
     setProfileTutorialStep(0);
     setOpenedFromRoadmapTutorial(false);
-    setSelectedGameRole(profile?.game_role || localStorage.getItem("game_role"));
+    setSelectedGameRole(
+      profile?.game_role || localStorage.getItem("game_role"),
+    );
     form.setFieldsValue({
       password: "",
     });
@@ -684,10 +684,16 @@ export default function LayoutNavbar({ session }) {
 
       const payload = {
         nama_user: profile?.nama_user || values.nama_user,
-        email: isRoleSetupRequired ? profile?.email || values.email : values.email,
+        email: isRoleSetupRequired
+          ? profile?.email || values.email
+          : values.email,
       };
 
-      if (!isRoleSetupRequired && values.password && values.password.trim().length > 0) {
+      if (
+        !isRoleSetupRequired &&
+        values.password &&
+        values.password.trim().length > 0
+      ) {
         payload.password = values.password.trim();
       }
 
@@ -929,13 +935,15 @@ export default function LayoutNavbar({ session }) {
 
             <div>
               <div style={modalStyles.title}>
-                {isRoleSetupRequired ? "Selamat Datang di CodeTrail" : "Profil Mahasiswa"}
-              </div>
-              <div style={modalStyles.subtitle}>
                 {isRoleSetupRequired
-                  ? "Sebelum mulai belajar, pilih role game yang akan menemani perjalananmu. Setiap role punya skill berbeda untuk membantu quiz."
-                  : "Kelola akun dan lihat role game yang sudah kamu pilih."}
+                  ? "Selamat Datang di CodeTrail"
+                  : "Profil Mahasiswa"}
               </div>
+              {!isRoleSetupRequired ? (
+                <div style={modalStyles.subtitle}>
+                  Kelola akun dan lihat role game yang sudah kamu pilih.
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -955,9 +963,13 @@ export default function LayoutNavbar({ session }) {
           <div style={modalStyles.setupIntroCard}>
             <div style={modalStyles.setupIntroIcon}>🚀</div>
             <div>
-              <div style={modalStyles.setupIntroTitle}>Mulai perjalananmu sebagai karakter pilihanmu.</div>
+              <div style={modalStyles.setupIntroTitle}>
+                Mulai perjalananmu sebagai karakter pilihanmu.
+              </div>
               <div style={modalStyles.setupIntroText}>
-                Pilih role yang paling cocok dengan gaya belajarmu. Setelah disimpan, role akan mengaktifkan skill khusus di quiz dan tidak bisa diubah lagi.
+                Pilih role yang paling cocok dengan gaya belajarmu. Setelah
+                disimpan, role akan mengaktifkan skill khusus di quiz dan tidak
+                bisa diubah lagi.
               </div>
             </div>
           </div>
@@ -1107,7 +1119,10 @@ export default function LayoutNavbar({ session }) {
             </div>
 
             {selectedRoleData ? (
-              <div data-tour="profile-skill-preview" style={modalStyles.skillPreview}>
+              <div
+                data-tour="profile-skill-preview"
+                style={modalStyles.skillPreview}
+              >
                 <div style={modalStyles.skillHeader}>
                   <div style={modalStyles.skillRoleIcon}>
                     {selectedRoleData.icon}
@@ -1165,9 +1180,7 @@ export default function LayoutNavbar({ session }) {
               Batal
             </Button>
           ) : (
-            <div style={modalStyles.lockedSetupText}>
-              Setup role wajib diselesaikan dulu.
-            </div>
+            <div style={modalStyles.lockedSetupText}></div>
           )}
 
           <Button
@@ -1189,11 +1202,9 @@ export default function LayoutNavbar({ session }) {
           onClose={closeAppNotif}
         />
       ) : null}
-
     </>
   );
 }
-
 
 function PopupNotif({ type = "info", title, message, onClose }) {
   const isSuccess = type === "success";
@@ -1289,15 +1300,23 @@ const notifStyles = {
   },
   successBtn: {
     border: "1px solid rgba(34,197,94,0.55)",
-    background: "linear-gradient(135deg, rgba(16,185,129,0.72), rgba(34,197,94,0.42))",
+    background:
+      "linear-gradient(135deg, rgba(16,185,129,0.72), rgba(34,197,94,0.42))",
   },
   errorBtn: {
     border: "1px solid rgba(244,63,94,0.55)",
-    background: "linear-gradient(135deg, rgba(244,63,94,0.52), rgba(190,24,93,0.42))",
+    background:
+      "linear-gradient(135deg, rgba(244,63,94,0.52), rgba(190,24,93,0.42))",
   },
 };
 
-function ProfileRoleTutorial({ open, step, hasSelectedRole, onNext, onFinish }) {
+function ProfileRoleTutorial({
+  open,
+  step,
+  hasSelectedRole,
+  onNext,
+  onFinish,
+}) {
   const [targetRect, setTargetRect] = useState(null);
 
   const steps = [
@@ -1306,7 +1325,9 @@ function ProfileRoleTutorial({ open, step, hasSelectedRole, onNext, onFinish }) 
       icon: "🎭",
       title: "Pilih role game kamu",
       text: "Klik salah satu role yang dikotak. Setelah role dipilih, detail skill-nya akan muncul di bagian bawah.",
-      actionText: hasSelectedRole ? "Lanjut lihat skill" : "Klik role yang dikotak",
+      actionText: hasSelectedRole
+        ? "Lanjut lihat skill"
+        : "Klik role yang dikotak",
       forceTarget: true,
     },
     {
@@ -1547,7 +1568,9 @@ function ProfileRoleTutorial({ open, step, hasSelectedRole, onNext, onFinish }) 
         }}
       >
         <div style={profileTourStyles.bubbleTop}>
-          <div style={profileTourStyles.stepBadge}>{Math.min(step + 1, 3)}/3</div>
+          <div style={profileTourStyles.stepBadge}>
+            {Math.min(step + 1, 3)}/3
+          </div>
         </div>
 
         <div style={profileTourStyles.icon}>{current.icon}</div>

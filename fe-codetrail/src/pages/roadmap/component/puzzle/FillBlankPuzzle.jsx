@@ -25,23 +25,25 @@ export default function FillBlankPuzzle({
   const [popupNotif, setPopupNotif] = useState(null);
 
   const isDone = puzzle?.raw_status === "done" || puzzle?.status === "done";
-const isPreview = isDone || puzzle?.hasil || puzzle?.jawaban;
+  const isPreview = isDone || puzzle?.hasil || puzzle?.jawaban;
 
-const handleClose = () => {
-  if (!isDone) {
-    alert("Selesaikan puzzle terlebih dahulu sebelum kembali.");
-    return;
-  }
+  const handleClose = () => {
+    if (!isDone) {
+      alert("Selesaikan puzzle terlebih dahulu sebelum kembali.");
+      return;
+    }
 
-  onClose?.();
-};
+    onClose?.();
+  };
 
   useEffect(() => {
     if (!open) return;
 
-    setAnswers({});
+    const savedAnswers = puzzle?.jawaban?.answers || {};
+
+    setAnswers(isPreview ? savedAnswers : {});
     setAttempt(Number(puzzle?.attempt || 0));
-  }, [open, puzzle?.attempt]);
+  }, [open, puzzle?.attempt, puzzle?.jawaban, isPreview]);
 
   useEffect(() => {
     if (!open) return;
@@ -50,33 +52,45 @@ const handleClose = () => {
     document.body.style.overflow = "hidden";
 
     const onKey = (e) => {
-  if (e.key === "Escape") handleClose();
-};
+      if (e.key === "Escape") {
+        if (tutorActive && !isDone) return;
+        handleClose();
+      }
+    };
+
     window.addEventListener("keydown", onKey);
 
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open, onClose, tutorActive, isDone]);
 
   if (!open) return null;
 
   const template = detail.template_text || "";
   const expectedAnswers = detail.expected_answers || {};
 
+  const normalizeText = (value) => {
+    return String(value || "").trim().toLowerCase();
+  };
+
   const getInputWidth = (key) => {
     const answer = String(expectedAnswers[key] || "");
-    const length = Math.max(answer.length, key.length, 4);
+    const currentAnswer = String(answers[key] || "");
+    const length = Math.max(answer.length, currentAnswer.length, key.length, 4);
 
-    return `${length + 2}ch`;
+    return `${Math.min(length + 2, 28)}ch`;
   };
 
   const renderTemplate = () => {
-    const parts = template.split(/(<blank\d+>)/g);
+    const parts = template.split(/(<blank\d+>|\{\{blank\d+\}\})/g);
 
     return parts.map((part, index) => {
-      const match = part.match(/<blank(\d+)>/);
+      const angleMatch = part.match(/^<blank(\d+)>$/);
+      const curlyMatch = part.match(/^\{\{blank(\d+)\}\}$/);
+
+      const match = angleMatch || curlyMatch;
 
       if (!match) {
         return <span key={index}>{part}</span>;
@@ -89,6 +103,7 @@ const handleClose = () => {
           key={index}
           value={answers[key] || ""}
           placeholder={key}
+          disabled={isDone}
           onChange={(e) =>
             setAnswers((prev) => ({
               ...prev,
@@ -97,6 +112,7 @@ const handleClose = () => {
           }
           style={{
             ...F.blankInput,
+            ...(isDone ? F.blankInputDisabled : {}),
             width: getInputWidth(key),
           }}
         />
@@ -105,167 +121,168 @@ const handleClose = () => {
   };
 
   const showPopupNotif = ({ type, title, message, onClose }) => {
-  setPopupNotif({
-    type,
-    title,
-    message,
-    onClose,
-  });
-};
+    setPopupNotif({
+      type,
+      title,
+      message,
+      onClose,
+    });
+  };
 
-const closePopupNotif = () => {
-  const callback = popupNotif?.onClose;
+  const closePopupNotif = () => {
+    const callback = popupNotif?.onClose;
 
-  setPopupNotif(null);
+    setPopupNotif(null);
 
-  if (typeof callback === "function") {
-    callback();
-  }
-};
+    if (typeof callback === "function") {
+      callback();
+    }
+  };
 
   const checkAnswer = async () => {
-  if (!puzzle?.id_progress_puzzle) {
-    console.error("id_progress_puzzle tidak ditemukan:", puzzle);
-
-    showPopupNotif({
-      type: "error",
-      title: "Terjadi Error",
-      message: "ID progress puzzle tidak ditemukan. Cek mapping selectedPuzzle.",
-    });
-
-    return;
-  }
-
-  const duration = Number(secondsElapsed || 0);
-
-  try {
-    const requiredKeys = Object.keys(expectedAnswers);
-
-    const isComplete = requiredKeys.every((key) => {
-      return String(answers[key] || "").trim() !== "";
-    });
-
-    const jawabanPayload = {
-      type: "fill_blank",
-      answers,
-    };
-
-    const hasilPayload = {
-      template: template,
-    };
-
-    if (!isComplete) {
-      const response = await updatePuzzleAttemptApi(
-        puzzle.id_progress_puzzle,
-        {
-          is_done: false,
-          waktu: duration,
-          jawaban: jawabanPayload,
-          hasil: hasilPayload,
-        },
-      );
-
-      const finalAttempt = response?.data?.success
-        ? response.data.data.current.attempt
-        : attempt + 1;
-
-      setAttempt(finalAttempt);
+    if (!puzzle?.id_progress_puzzle) {
+      console.error("id_progress_puzzle tidak ditemukan:", puzzle);
 
       showPopupNotif({
         type: "error",
-        title: "Jawaban Belum Lengkap",
-        message: `Semua bagian kosong harus diisi. Attempt: ${finalAttempt}`,
+        title: "Terjadi Error",
+        message: "ID progress puzzle tidak ditemukan. Cek mapping selectedPuzzle.",
       });
 
       return;
     }
 
-    const isCorrect = requiredKeys.every((key) => {
-      const userAnswer = String(answers[key] || "").trim();
-      const correctAnswer = String(expectedAnswers[key] || "").trim();
+    const duration = Number(secondsElapsed || 0);
 
-      return userAnswer === correctAnswer;
-    });
+    try {
+      const requiredKeys = Object.keys(expectedAnswers);
 
-    if (!isCorrect) {
-      const response = await updatePuzzleAttemptApi(
-        puzzle.id_progress_puzzle,
-        {
-          is_done: false,
-          waktu: duration,
-          jawaban: jawabanPayload,
-          hasil: hasilPayload,
-        },
-      );
-
-      const finalAttempt = response?.data?.success
-        ? response.data.data.current.attempt
-        : attempt + 1;
-
-      setAttempt(finalAttempt);
-
-      showPopupNotif({
-        type: "error",
-        title: "Jawaban Salah",
-        message: `Jawaban masih salah. Attempt: ${finalAttempt}`,
+      const isComplete = requiredKeys.every((key) => {
+        return String(answers[key] || "").trim() !== "";
       });
 
-      return;
-    }
-
-    const response = await updatePuzzleAttemptApi(puzzle.id_progress_puzzle, {
-      is_done: true,
-      waktu: duration,
-      jawaban: jawabanPayload,
-      hasil: hasilPayload,
-    });
-
-    if (response?.data?.success) {
-      const finalAttempt = response.data.data.current.attempt;
-
-      setAttempt(finalAttempt);
-
-      const finalResult = {
-        puzzleTitle,
+      const jawabanPayload = {
         type: "fill_blank",
-        attempt: finalAttempt,
-        xp: xpPotential,
+        answers,
+      };
+
+      const hasilPayload = {
+        template,
+        expected_answers: expectedAnswers,
+      };
+
+      if (!isComplete) {
+        const response = await updatePuzzleAttemptApi(
+          puzzle.id_progress_puzzle,
+          {
+            is_done: false,
+            waktu: duration,
+            jawaban: jawabanPayload,
+            hasil: hasilPayload,
+          },
+        );
+
+        const finalAttempt = response?.data?.success
+          ? response.data.data.current.attempt
+          : attempt + 1;
+
+        setAttempt(finalAttempt);
+
+        showPopupNotif({
+          type: "error",
+          title: "Jawaban Belum Lengkap",
+          message: `Semua bagian kosong harus diisi. Attempt: ${finalAttempt}`,
+        });
+
+        return;
+      }
+
+      const isCorrect = requiredKeys.every((key) => {
+        const userAnswer = normalizeText(answers[key]);
+        const correctAnswer = normalizeText(expectedAnswers[key]);
+
+        return userAnswer === correctAnswer;
+      });
+
+      if (!isCorrect) {
+        const response = await updatePuzzleAttemptApi(
+          puzzle.id_progress_puzzle,
+          {
+            is_done: false,
+            waktu: duration,
+            jawaban: jawabanPayload,
+            hasil: hasilPayload,
+          },
+        );
+
+        const finalAttempt = response?.data?.success
+          ? response.data.data.current.attempt
+          : attempt + 1;
+
+        setAttempt(finalAttempt);
+
+        showPopupNotif({
+          type: "error",
+          title: "Jawaban Salah",
+          message: `Jawaban masih salah. Attempt: ${finalAttempt}`,
+        });
+
+        return;
+      }
+
+      const response = await updatePuzzleAttemptApi(puzzle.id_progress_puzzle, {
+        is_done: true,
         waktu: duration,
         jawaban: jawabanPayload,
         hasil: hasilPayload,
-      };
-
-      showPopupNotif({
-        type: "success",
-        title: "Jawaban Benar!",
-        message: "Puzzle berhasil diselesaikan.",
-        onClose: () => {
-          if (tutorActive) onTutorPuzzleFinished?.();
-          onFinish?.(finalResult);
-        },
       });
 
-      return;
+      if (response?.data?.success) {
+        const finalAttempt = response.data.data.current.attempt;
+
+        setAttempt(finalAttempt);
+
+        const finalResult = {
+          puzzleTitle,
+          type: "fill_blank",
+          attempt: finalAttempt,
+          xp: xpPotential,
+          waktu: duration,
+          jawaban: jawabanPayload,
+          hasil: hasilPayload,
+        };
+
+        showPopupNotif({
+          type: "success",
+          title: "Jawaban Benar!",
+          message: "Puzzle berhasil diselesaikan.",
+          onClose: () => {
+            if (tutorActive) onTutorPuzzleFinished?.();
+            onFinish?.(finalResult);
+          },
+        });
+
+        return;
+      }
+
+      showPopupNotif({
+        type: "error",
+        title: "Gagal Menyimpan",
+        message: response?.data?.message || "Gagal menyimpan progress puzzle.",
+      });
+    } catch (error) {
+      console.error("Gagal update attempt fill blank:", error);
+
+      showPopupNotif({
+        type: "error",
+        title: "Terjadi Error",
+        message: "Terjadi error saat menyimpan jawaban puzzle.",
+      });
     }
-
-    showPopupNotif({
-      type: "error",
-      title: "Gagal Menyimpan",
-      message: response?.data?.message || "Gagal menyimpan progress puzzle.",
-    });
-  } catch (error) {
-    console.error("Gagal update attempt fill blank:", error);
-
-    showPopupNotif({
-      type: "error",
-      title: "Terjadi Error",
-      message: "Terjadi error saat menyimpan jawaban puzzle.",
-    });
-  }
-};
+  };
 
   return (
-   <div style={P.overlay} onMouseDown={handleClose}>
+    <div style={P.overlay} onMouseDown={handleClose}>
       <div style={P.sheet} onMouseDown={(e) => e.stopPropagation()}>
         <div style={P.topbar}>
           <div style={P.breadcrumb}>
@@ -310,8 +327,8 @@ const closePopupNotif = () => {
               <div style={P.panelTitle}>Instruksi</div>
 
               <div style={P.tip}>
-                Isi bagian kosong sesuai jawaban yang benar. Panjang input akan
-                menyesuaikan panjang jawaban.
+                Isi bagian kosong sesuai jawaban yang benar. Format kosong bisa
+                memakai <b>{"<blank1>"}</b> atau <b>{"{{blank1}}"}</b>.
               </div>
 
               <div style={P.reward}>
@@ -339,42 +356,55 @@ const closePopupNotif = () => {
                 </div>
               </div>
 
-              <div style={P.actions}>
-                <button data-tutor="fill-submit" style={P.checkBtn} onClick={checkAnswer}>
-                  Periksa Jawaban 🚀
-                </button>
-              </div>
+              {!isDone ? (
+                <div style={P.actions}>
+                  <button
+                    data-tutor="fill-submit"
+                    style={P.checkBtn}
+                    onClick={checkAnswer}
+                  >
+                    Periksa Jawaban 🚀
+                  </button>
+                </div>
+              ) : (
+                <div style={P.actions}>
+                  <button style={P.checkBtn} onClick={onClose}>
+                    Kembali ke Modul
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
       {popupNotif ? (
-  <div style={N.overlay} onMouseDown={(e) => e.stopPropagation()}>
-    <div style={N.card}>
-      <div
-        style={{
-          ...N.iconCircle,
-          ...(popupNotif.type === "success" ? N.successIcon : N.errorIcon),
-        }}
-      >
-        {popupNotif.type === "success" ? "✓" : "✕"}
-      </div>
+        <div style={N.overlay} onMouseDown={(e) => e.stopPropagation()}>
+          <div style={N.card}>
+            <div
+              style={{
+                ...N.iconCircle,
+                ...(popupNotif.type === "success" ? N.successIcon : N.errorIcon),
+              }}
+            >
+              {popupNotif.type === "success" ? "✓" : "✕"}
+            </div>
 
-      <div style={N.title}>{popupNotif.title}</div>
-      <div style={N.message}>{popupNotif.message}</div>
+            <div style={N.title}>{popupNotif.title}</div>
+            <div style={N.message}>{popupNotif.message}</div>
 
-      <button
-        style={{
-          ...N.button,
-          ...(popupNotif.type === "success" ? N.successBtn : N.errorBtn),
-        }}
-        onClick={closePopupNotif}
-      >
-        Oke
-      </button>
-    </div>
-  </div>
-) : null}
+            <button
+              style={{
+                ...N.button,
+                ...(popupNotif.type === "success" ? N.successBtn : N.errorBtn),
+              }}
+              onClick={closePopupNotif}
+            >
+              Oke
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <InlineWorkTutor
         open={tutorActive && !isDone}
@@ -619,6 +649,7 @@ function InlineWorkTutor({ open, steps = [] }) {
           }
         }
       `}</style>
+
       {box ? (
         <>
           <div
@@ -763,7 +794,8 @@ const IT = {
     position: "fixed",
     zIndex: 30000,
     pointerEvents: "auto",
-    transition: "top 280ms ease, left 280ms ease, bottom 280ms ease, transform 280ms ease",
+    transition:
+      "top 280ms ease, left 280ms ease, bottom 280ms ease, transform 280ms ease",
   },
   card: {
     borderRadius: 22,
@@ -826,7 +858,6 @@ const IT = {
   },
 };
 
-
 const F = {
   markdownBlock: {
     fontFamily: "monospace",
@@ -847,6 +878,11 @@ const F = {
     maxWidth: "28ch",
     outline: "none",
     fontFamily: "monospace",
+  },
+
+  blankInputDisabled: {
+    opacity: 0.78,
+    cursor: "not-allowed",
   },
 };
 

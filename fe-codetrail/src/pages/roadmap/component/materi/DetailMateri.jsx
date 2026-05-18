@@ -1,138 +1,72 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
-import * as pdfjsLib from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+const markdownComponents = {
+  h1({ children }) {
+    return <h1 style={S.mdH1}>{children}</h1>;
+  },
+  h2({ children }) {
+    return <h2 style={S.mdH2}>{children}</h2>;
+  },
+  h3({ children }) {
+    return <h3 style={S.mdH3}>{children}</h3>;
+  },
+  p({ children }) {
+    return <p style={S.mdP}>{children}</p>;
+  },
+  ul({ children }) {
+    return <ul style={S.mdUl}>{children}</ul>;
+  },
+  ol({ children }) {
+    return <ol style={S.mdOl}>{children}</ol>;
+  },
+  li({ children }) {
+    return <li style={S.mdLi}>{children}</li>;
+  },
+  blockquote({ children }) {
+    return <blockquote style={S.mdBlockquote}>{children}</blockquote>;
+  },
+  code({ inline, className, children, ...props }) {
+    const value = String(children || "").replace(/\n$/, "");
 
-function normalizePdfTextToMarkdown(text = "", title = "") {
-  const rawLines = String(text)
-    .replace(/\r/g, "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const mergedLines = [];
-  const fieldPattern =
-    /^(nama|tanggal lahir|jenjang pendidikan|tanggal tes|email|program studi)\s*:/i;
-
-  for (const line of rawLines) {
-    const prev = mergedLines[mergedLines.length - 1];
-
-    if (
-      prev &&
-      fieldPattern.test(prev) &&
-      !fieldPattern.test(line) &&
-      !/^hasil /i.test(line) &&
-      !/^diagram /i.test(line) &&
-      !/^visualisasi /i.test(line)
-    ) {
-      mergedLines[mergedLines.length - 1] = `${prev} ${line}`;
-    } else {
-      mergedLines.push(line);
-    }
-  }
-
-  const out = [];
-  let titleUsed = false;
-
-  for (const line of mergedLines) {
-    if (/^\d+$/.test(line)) continue;
-
-    if (!titleUsed) {
-      out.push(`# ${line}`);
-      out.push("");
-      titleUsed = true;
-      continue;
-    }
-
-    if (
-      /^hasil /i.test(line) ||
-      /^diagram /i.test(line) ||
-      /^visualisasi /i.test(line)
-    ) {
-      out.push(`## ${line}`);
-      out.push("");
-      continue;
-    }
-
-    if (fieldPattern.test(line)) {
-      const [label, ...rest] = line.split(":");
-      out.push(`- **${label.trim()}**: ${rest.join(":").trim()}`);
-      continue;
-    }
-
-    out.push(line);
-  }
-
-  return out
-    .join("\n\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-async function extractPdfStructuredText(url) {
-  const loadingTask = pdfjsLib.getDocument(url);
-  const pdf = await loadingTask.promise;
-  const pages = [];
-
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-    const page = await pdf.getPage(pageNumber);
-    const textContent = await page.getTextContent();
-
-    const items = textContent.items
-      .filter((item) => "str" in item && item.str?.trim())
-      .map((item) => {
-        const x = item.transform[4];
-        const y = item.transform[5];
-        return {
-          text: item.str.trim(),
-          x,
-          y,
-        };
-      });
-
-    const lines = [];
-    const tolerance = 3;
-
-    for (const item of items) {
-      let targetLine = lines.find(
-        (line) => Math.abs(line.y - item.y) <= tolerance,
+    if (inline) {
+      return (
+        <code style={S.inlineCode} {...props}>
+          {children}
+        </code>
       );
-
-      if (!targetLine) {
-        targetLine = { y: item.y, items: [] };
-        lines.push(targetLine);
-      }
-
-      targetLine.items.push(item);
     }
 
-    lines.sort((a, b) => b.y - a.y);
+    return (
+      <div style={S.codeCard}>
+        <div style={S.codeHeader}>
+          <span style={S.codeDotGreen} />
+          <span style={S.codeDotPurple} />
+          <span style={S.codeHeaderText}>CODE</span>
+        </div>
+        <pre style={S.codePre}>
+          <code className={className} style={S.codeBlock} {...props}>
+            {value}
+          </code>
+        </pre>
+      </div>
+    );
+  },
+  table({ children }) {
+    return (
+      <div style={S.tableScroll}>
+        <table style={S.mdTable}>{children}</table>
+      </div>
+    );
+  },
+  th({ children }) {
+    return <th style={S.mdTh}>{children}</th>;
+  },
+  td({ children }) {
+    return <td style={S.mdTd}>{children}</td>;
+  },
+};
 
-    const pageLines = lines.map((line) => {
-      const sortedItems = line.items.sort((a, b) => a.x - b.x);
-
-      let row = "";
-      let prevX = null;
-
-      for (const part of sortedItems) {
-        if (prevX !== null) {
-          const gap = part.x - prevX;
-          row += gap > 25 ? "    " : " ";
-        }
-        row += part.text;
-        prevX = part.x + (part.text?.length || 0) * 4;
-      }
-
-      return row.trim();
-    });
-
-    pages.push(pageLines.join("\n"));
-  }
-
-  return pages.join("\n\n---\n\n");
-}
 
 export default function MateriFullscreen({
   open,
@@ -141,10 +75,6 @@ export default function MateriFullscreen({
   onClose,
   onNext,
 }) {
-  const [markdownContent, setMarkdownContent] = useState("");
-  const [pdfLoading, setPdfLoading] = useState(false);
-  const [pdfError, setPdfError] = useState("");
-
   useEffect(() => {
     if (!open) return;
 
@@ -177,10 +107,16 @@ export default function MateriFullscreen({
     tipeFile.includes("mp4") ||
     fileName.endsWith(".mp4");
 
-  const isPdf = tipeFile.includes("pdf") || fileName.endsWith(".pdf");
-
   const hasPreviewFile = Boolean(materi?.file_materi && materi?.id_materi);
   const hasExternalLink = Boolean(materi?.link);
+
+  const markdownMateri =
+    materi?.markdown_materi ||
+    materi?.isi_materi ||
+    materi?.content_materi ||
+    "";
+
+  const hasMarkdown = String(markdownMateri).trim().length > 0;
 
   const rawStatus =
     materi?.raw_status ||
@@ -196,49 +132,6 @@ export default function MateriFullscreen({
 
   const nextLabel = normalizedStatus === "done" ? "Selesai ✓" : "Selesai →";
   const isNextDisabled = normalizedStatus === "locked";
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function run() {
-      if (!open || !hasPreviewFile || !isPdf || !fileApiUrl) {
-        setMarkdownContent("");
-        setPdfError("");
-        setPdfLoading(false);
-        return;
-      }
-
-      try {
-        setPdfLoading(true);
-        setPdfError("");
-
-        const extractedText = await extractPdfStructuredText(fileApiUrl);
-        const markdown = normalizePdfTextToMarkdown(
-          extractedText,
-          materi?.judul_materi || "Materi PDF",
-        );
-
-        if (!cancelled) {
-          setMarkdownContent(markdown);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setPdfError("PDF tidak berhasil dikonversi ke markdown.");
-          setMarkdownContent("");
-        }
-      } finally {
-        if (!cancelled) {
-          setPdfLoading(false);
-        }
-      }
-    }
-
-    run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, hasPreviewFile, isPdf, fileApiUrl, materi?.judul_materi]);
 
   if (!open) return null;
 
@@ -285,9 +178,7 @@ export default function MateriFullscreen({
             </div>
 
             <div style={S.previewHeader}>
-              <div style={S.previewTitle}>
-                {isPdf ? "Isi Materi" : "Preview Materi"}
-              </div>
+              <div style={S.previewTitle}>Isi Materi</div>
 
               <div style={S.previewActions}>
                 {hasExternalLink && (
@@ -301,74 +192,57 @@ export default function MateriFullscreen({
                   </a>
                 )}
 
-                {hasPreviewFile && (
+                {hasPreviewFile && isVideo && (
                   <a
                     href={fileApiUrl}
                     target="_blank"
                     rel="noreferrer"
                     style={S.primaryBtn}
                   >
-                    Buka File
+                    Buka Video
                   </a>
                 )}
               </div>
             </div>
 
             <div style={S.previewBox}>
-              {hasPreviewFile && isVideo ? (
-                <video
-                  controls
-                  preload="metadata"
-                  src={fileApiUrl}
-                  style={S.videoPreview}
-                />
-              ) : hasPreviewFile && isPdf ? (
-                pdfLoading ? (
-                  <div style={S.emptyPreview}>
-                    <div style={S.emptyText}>Mengubah PDF ke markdown...</div>
-                  </div>
-                ) : pdfError ? (
-                  <div style={S.emptyPreview}>
-                    <div style={S.emptyText}>{pdfError}</div>
-                    <iframe
-                      src={fileApiUrl}
-                      title="Preview PDF Materi"
-                      style={S.iframePreview}
-                    />
-                  </div>
-                ) : (
-                  <article style={S.markdownWrap}>
-                    <ReactMarkdown>{markdownContent}</ReactMarkdown>
-                  </article>
-                )
-              ) : hasPreviewFile ? (
-                <div style={S.emptyPreview}>
-                  <div style={S.emptyText}>
-                    Preview file belum tersedia untuk tipe ini.
-                  </div>
-                  <a
-                    href={fileApiUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={S.primaryBtn}
-                  >
-                    Download / Buka File
-                  </a>
-                </div>
-              ) : hasExternalLink ? (
-                <iframe
-                  src={materi.link}
-                  title="Preview Link Materi"
-                  style={S.iframePreview}
-                />
+              {hasMarkdown ? (
+                <article style={S.markdownWrap}>
+                  <ReactMarkdown components={markdownComponents}>{markdownMateri}</ReactMarkdown>
+                </article>
               ) : (
                 <div style={S.emptyPreview}>
                   <div style={S.emptyText}>
-                    Materi ini belum memiliki file atau link untuk dipreview.
+                    Materi markdown belum diisi.
                   </div>
                 </div>
               )}
             </div>
+
+            {hasPreviewFile && isVideo ? (
+              <>
+                <div style={S.sectionGap} />
+                <div style={S.previewHeader}>
+                  <div style={S.previewTitle}>Video Materi</div>
+                </div>
+
+                <div style={S.previewBox}>
+                  <video
+                    controls
+                    preload="metadata"
+                    src={fileApiUrl}
+                    style={S.videoPreview}
+                  />
+                </div>
+              </>
+            ) : null}
+
+            {!isVideo && hasPreviewFile ? (
+              <div style={S.warningBox}>
+                File materi lama bukan MP4. Sistem sekarang hanya menampilkan
+                markdown dan video MP4, jadi file PDF tidak dipreview lagi.
+              </div>
+            ) : null}
 
             <div style={S.bottomBar}>
               <button style={S.backAction} onClick={onClose}>
@@ -404,16 +278,16 @@ const S = {
   },
 
   sheet: {
-  width: "100%",
-  height: "100%",
-  background:
-    "radial-gradient(1000px 600px at 60% 20%, rgba(92,255,210,0.10) 0%, rgba(80,90,255,0.10) 25%, rgba(10,12,22,1) 60%)",
-  color: "rgba(235,240,255,0.92)",
-  fontFamily:
-    "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial",
-  overflowY: "auto",
-  overflowX: "hidden",
-},
+    width: "100%",
+    height: "100%",
+    background:
+      "radial-gradient(1000px 600px at 60% 20%, rgba(92,255,210,0.10) 0%, rgba(80,90,255,0.10) 25%, rgba(10,12,22,1) 60%)",
+    color: "rgba(235,240,255,0.92)",
+    fontFamily:
+      "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial",
+    overflowY: "auto",
+    overflowX: "hidden",
+  },
 
   topbar: {
     height: 56,
@@ -425,7 +299,12 @@ const S = {
     background: "rgba(255,255,255,0.02)",
   },
 
-  breadcrumb: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 },
+  breadcrumb: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    minWidth: 0,
+  },
 
   backBtn: {
     width: 36,
@@ -437,7 +316,10 @@ const S = {
     cursor: "pointer",
   },
 
-  muted: { fontSize: 12, opacity: 0.7 },
+  muted: {
+    fontSize: 12,
+    opacity: 0.7,
+  },
 
   strong: {
     fontSize: 12,
@@ -448,8 +330,12 @@ const S = {
     textOverflow: "ellipsis",
   },
 
-  rightIcons: { display: "flex", alignItems: "center", gap: 10 },
-  
+  rightIcons: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+
   circleIcon: {
     width: 36,
     height: 36,
@@ -461,23 +347,23 @@ const S = {
   },
 
   body: {
-  display: "grid",
-  gridTemplateColumns: "240px minmax(0, 1fr) 240px",
-  gap: 16,
-  padding: 16,
-  alignItems: "start",
-},
+    display: "grid",
+    gridTemplateColumns: "240px minmax(0, 1fr) 240px",
+    gap: 16,
+    padding: 16,
+    alignItems: "start",
+  },
 
   leftPad: {},
   rightPad: {},
 
   contentCard: {
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.03)",
-  padding: 18,
-  alignSelf: "start",
-},
+    borderRadius: 16,
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.03)",
+    padding: 18,
+    alignSelf: "start",
+  },
 
   headerTop: {
     display: "flex",
@@ -488,8 +374,18 @@ const S = {
     marginBottom: 18,
   },
 
-  title: { fontSize: 28, fontWeight: 900, marginBottom: 6 },
-  subTitle: { fontSize: 12, opacity: 0.7, marginBottom: 10 },
+  title: {
+    fontSize: 28,
+    fontWeight: 900,
+    marginBottom: 6,
+  },
+
+  subTitle: {
+    fontSize: 12,
+    opacity: 0.7,
+    marginBottom: 10,
+  },
+
   desc: {
     fontSize: 13,
     opacity: 0.82,
@@ -528,18 +424,10 @@ const S = {
   },
 
   previewBox: {
-  background: "rgba(255,255,255,0.03)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  borderRadius: 18,
-  padding: 20,
-},
-
-  iframePreview: {
-    width: "100%",
-    height: 460,
-    border: "none",
-    borderRadius: 14,
-    background: "#fff",
+    background: "rgba(255,255,255,0.03)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 18,
+    padding: 20,
   },
 
   videoPreview: {
@@ -558,8 +446,169 @@ const S = {
     overflowWrap: "anywhere",
   },
 
+
+  mdH1: {
+    fontSize: 30,
+    fontWeight: 950,
+    lineHeight: 1.25,
+    margin: "0 0 18px",
+    color: "rgba(245,248,255,0.96)",
+  },
+
+  mdH2: {
+    fontSize: 23,
+    fontWeight: 900,
+    lineHeight: 1.3,
+    margin: "30px 0 14px",
+    color: "rgba(245,248,255,0.94)",
+  },
+
+  mdH3: {
+    fontSize: 18,
+    fontWeight: 850,
+    lineHeight: 1.35,
+    margin: "24px 0 10px",
+    color: "rgba(245,248,255,0.92)",
+  },
+
+  mdP: {
+    margin: "0 0 15px",
+    lineHeight: 1.85,
+    color: "rgba(235,240,255,0.86)",
+  },
+
+  mdUl: {
+    margin: "8px 0 18px",
+    paddingLeft: 24,
+  },
+
+  mdOl: {
+    margin: "8px 0 18px",
+    paddingLeft: 24,
+  },
+
+  mdLi: {
+    margin: "7px 0",
+    lineHeight: 1.75,
+    color: "rgba(235,240,255,0.86)",
+  },
+
+  mdBlockquote: {
+    margin: "18px 0",
+    padding: "14px 16px",
+    borderLeft: "4px solid rgba(60,255,201,0.55)",
+    borderRadius: 14,
+    background: "rgba(60,255,201,0.07)",
+    color: "rgba(235,240,255,0.86)",
+  },
+
+  inlineCode: {
+    padding: "3px 7px",
+    borderRadius: 8,
+    border: "1px solid rgba(60,255,201,0.18)",
+    background: "rgba(60,255,201,0.08)",
+    color: "rgba(145,255,223,0.96)",
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    fontSize: "0.92em",
+    fontWeight: 750,
+  },
+
+  codeCard: {
+    margin: "18px 0 24px",
+    borderRadius: 16,
+    border: "1px solid rgba(60,255,201,0.20)",
+    background:
+      "linear-gradient(180deg, rgba(9,14,28,0.96), rgba(5,8,18,0.96))",
+    boxShadow:
+      "0 16px 44px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04)",
+    overflow: "hidden",
+  },
+
+  codeHeader: {
+    height: 38,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "0 14px",
+    borderBottom: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.035)",
+  },
+
+  codeDotGreen: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    background: "rgba(60,255,201,0.95)",
+    boxShadow: "0 0 14px rgba(60,255,201,0.50)",
+  },
+
+  codeDotPurple: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    background: "rgba(140,86,255,0.95)",
+    boxShadow: "0 0 14px rgba(140,86,255,0.50)",
+  },
+
+  codeHeaderText: {
+    marginLeft: 4,
+    fontSize: 11,
+    fontWeight: 900,
+    letterSpacing: 1.1,
+    color: "rgba(215,222,250,0.58)",
+  },
+
+  codePre: {
+    margin: 0,
+    padding: 18,
+    overflowX: "auto",
+  },
+
+  codeBlock: {
+    display: "block",
+    minWidth: "100%",
+    color: "rgba(235,240,255,0.94)",
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    fontSize: 13,
+    lineHeight: 1.75,
+    whiteSpace: "pre",
+    tabSize: 2,
+  },
+
+  tableScroll: {
+    width: "100%",
+    overflowX: "auto",
+    margin: "18px 0 24px",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+
+  mdTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    background: "rgba(255,255,255,0.025)",
+  },
+
+  mdTh: {
+    padding: "12px 14px",
+    borderBottom: "1px solid rgba(255,255,255,0.10)",
+    background: "rgba(60,255,201,0.07)",
+    color: "rgba(235,240,255,0.94)",
+    textAlign: "left",
+    fontWeight: 900,
+  },
+
+  mdTd: {
+    padding: "12px 14px",
+    borderBottom: "1px solid rgba(255,255,255,0.06)",
+    color: "rgba(235,240,255,0.84)",
+  },
+
+
   emptyPreview: {
-    minHeight: 320,
+    minHeight: 220,
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -571,6 +620,21 @@ const S = {
   emptyText: {
     fontSize: 13,
     opacity: 0.72,
+  },
+
+  warningBox: {
+    marginTop: 14,
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(255,210,90,0.22)",
+    background: "rgba(255,210,90,0.08)",
+    color: "rgba(255,237,189,0.92)",
+    fontSize: 13,
+    lineHeight: 1.6,
+  },
+
+  sectionGap: {
+    height: 18,
   },
 
   linkBtn: {

@@ -95,3 +95,20 @@ export const updatePuzzleAttemptApi = async (
     );
   }
 };
+
+export const runCodeApi = async (payload = {}) => {
+  try {
+    const response = await api.post("/code-runner/run", payload);
+    return response;
+  } catch (error) {
+    return (
+      error.response || {
+        status: 500,
+        data: {
+          success: false,
+          message: "Gagal menjalankan code runner.",
+        },
+      }
+    );
+  }
+};

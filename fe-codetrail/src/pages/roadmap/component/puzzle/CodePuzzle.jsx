@@ -2,7 +2,10 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { P } from "./PuzzleStyle";
 import { usePuzzleTimer } from "./PuzzleTimer";
-import { updatePuzzleAttemptApi } from "../../../../components/api/puzzlemap";
+import {
+  updatePuzzleAttemptApi,
+  runCodeApi,
+} from "../../../../components/api/puzzlemap";
 
 export default function CodePuzzle({
   open,
@@ -27,9 +30,9 @@ export default function CodePuzzle({
     puzzle?.raw_status === "done" || puzzle?.status === "done",
   );
   const [popupNotif, setPopupNotif] = useState(null);
+  const [running, setRunning] = useState(false);
 
   const isDone = puzzle?.raw_status === "done" || puzzle?.status === "done";
-  const isPreview = isDone || puzzle?.hasil || puzzle?.jawaban;
 
   const handleClose = () => {
     if (!isDone) {
@@ -52,6 +55,7 @@ export default function CodePuzzle({
     );
     setTestResults(puzzle?.hasil?.testResults || []);
     setAttempt(Number(puzzle?.attempt || 0));
+    setRunning(false);
   }, [open, detail.starter_code, puzzle]);
 
   useEffect(() => {
@@ -66,15 +70,37 @@ export default function CodePuzzle({
         handleClose();
       }
     };
+
     window.addEventListener("keydown", onKey);
 
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open, onClose, tutorActive, isDone]);
 
   if (!open) return null;
+
+  const normalizeLanguage = (value) => {
+    return String(value || "").toLowerCase().trim();
+  };
+
+  const getFileExtension = () => {
+    const language = normalizeLanguage(detail.language);
+
+    if (language === "javascript") return "js";
+    if (language === "java") return "java";
+
+    return "txt";
+  };
+
+  const getExpectedOutput = (testcase) => {
+    if (testcase?.expected_output !== undefined) {
+      return testcase.expected_output;
+    }
+
+    return testcase?.expected;
+  };
 
   const isEqualValue = (a, b) => {
     return JSON.stringify(a) === JSON.stringify(b);
@@ -125,7 +151,7 @@ export default function CodePuzzle({
 
     const results = testcases.map((testcase, index) => {
       const input = Array.isArray(testcase.input) ? testcase.input : [];
-      const expectedOutput = testcase.expected_output;
+      const expectedOutput = getExpectedOutput(testcase);
 
       try {
         const actualOutput = userFunction(...input);
@@ -162,133 +188,168 @@ export default function CodePuzzle({
     };
   };
 
-  const showPopupNotif = ({ type, title, message, onClose }) => {
-  setPopupNotif({
-    type,
-    title,
-    message,
-    onClose,
-  });
-};
-
-const closePopupNotif = () => {
-  const callback = popupNotif?.onClose;
-
-  setPopupNotif(null);
-
-  if (typeof callback === "function") {
-    callback();
-  }
-};
-
-  const checkAnswer = async () => {
-  if (!puzzle?.id_progress_puzzle) {
-    console.error("id_progress_puzzle tidak ditemukan:", puzzle);
-
-    showPopupNotif({
-      type: "error",
-      title: "Terjadi Error",
-      message: "ID progress puzzle tidak ditemukan. Cek mapping selectedPuzzle.",
+  const runJavaTestcases = async () => {
+    const response = await runCodeApi({
+      language: detail.language,
+      code,
+      function_name: detail.function_name,
+      testcases: detail.testcases || [],
+      time_limit_ms: detail.time_limit_ms || 1000,
     });
 
-    return;
-  }
+    if (!response?.data?.success) {
+      return {
+        success: false,
+        message: response?.data?.message || "Gagal menjalankan Java.",
+        results: [],
+      };
+    }
 
-  try {
-    if (detail.language !== "javascript") {
+    return response.data.data;
+  };
+
+  const showPopupNotif = ({ type, title, message, onClose }) => {
+    setPopupNotif({
+      type,
+      title,
+      message,
+      onClose,
+    });
+  };
+
+  const closePopupNotif = () => {
+    const callback = popupNotif?.onClose;
+
+    setPopupNotif(null);
+
+    if (typeof callback === "function") {
+      callback();
+    }
+  };
+
+  const checkAnswer = async () => {
+    if (!puzzle?.id_progress_puzzle) {
+      console.error("id_progress_puzzle tidak ditemukan:", puzzle);
+
       showPopupNotif({
         type: "error",
-        title: "Bahasa Belum Didukung",
-        message: "Saat ini runner baru mendukung JavaScript.",
+        title: "Terjadi Error",
+        message:
+          "ID progress puzzle tidak ditemukan. Cek mapping selectedPuzzle.",
       });
 
       return;
     }
 
-    const runResult = runJavascriptTestcases();
+    if (running) return;
 
-    setOutput(runResult.message);
-    setTestResults(runResult.results);
+    try {
+      setRunning(true);
 
-    const duration = Number(secondsElapsed || 0);
+      const language = normalizeLanguage(detail.language);
 
-    const response = await updatePuzzleAttemptApi(puzzle.id_progress_puzzle, {
-      is_done: runResult.success,
-      waktu: duration,
-      jawaban: {
-        type: "code",
-        code,
-      },
-      hasil: {
-        testResults: runResult.results,
-        message: runResult.message,
-      },
-    });
+      let runResult;
 
-    if (response?.data?.success) {
-      const finalAttempt = response.data.data.current.attempt;
-
-      setAttempt(finalAttempt);
-
-      if (!runResult.success) {
+      if (language === "javascript") {
+        runResult = runJavascriptTestcases();
+      } else if (language === "java") {
+        runResult = await runJavaTestcases();
+      } else {
         showPopupNotif({
           type: "error",
-          title: "Jawaban Belum Benar",
-          message: `Masih ada testcase yang gagal. Attempt: ${finalAttempt}`,
+          title: "Bahasa Belum Didukung",
+          message: `Runner belum mendukung bahasa ${detail.language}.`,
         });
 
         return;
       }
 
-      setIsSolved(true);
-      setOutput(
-        `✅ Jawaban benar! Semua testcase berhasil.\nAttempt: ${finalAttempt}`,
-      );
+      setOutput(runResult.message);
+      setTestResults(runResult.results);
 
-      const finalResult = {
-        puzzleTitle,
-        type: "code",
-        attempt: finalAttempt,
-        xp: xpPotential,
+      const duration = Number(secondsElapsed || 0);
+
+      const response = await updatePuzzleAttemptApi(puzzle.id_progress_puzzle, {
+        is_done: runResult.success,
         waktu: duration,
         jawaban: {
           type: "code",
+          language,
           code,
         },
         hasil: {
           testResults: runResult.results,
           message: runResult.message,
         },
-      };
-
-      showPopupNotif({
-        type: "success",
-        title: "Jawaban Benar!",
-        message: "Semua testcase berhasil.",
-        onClose: () => {
-          if (tutorActive) onTutorPuzzleFinished?.();
-          onFinish?.(finalResult);
-        },
       });
 
-      return;
+      if (response?.data?.success) {
+        const finalAttempt = response.data.data.current.attempt;
+
+        setAttempt(finalAttempt);
+
+        if (!runResult.success) {
+          showPopupNotif({
+            type: "error",
+            title: "Jawaban Belum Benar",
+            message: `Masih ada testcase yang gagal. Attempt: ${finalAttempt}`,
+          });
+
+          return;
+        }
+
+        setIsSolved(true);
+        setOutput(
+          `✅ Jawaban benar! Semua testcase berhasil.\nAttempt: ${finalAttempt}`,
+        );
+
+        const finalResult = {
+          puzzleTitle,
+          type: "code",
+          attempt: finalAttempt,
+          xp: xpPotential,
+          waktu: duration,
+          jawaban: {
+            type: "code",
+            language,
+            code,
+          },
+          hasil: {
+            testResults: runResult.results,
+            message: runResult.message,
+          },
+        };
+
+        showPopupNotif({
+          type: "success",
+          title: "Jawaban Benar!",
+          message: "Semua testcase berhasil.",
+          onClose: () => {
+            if (tutorActive) onTutorPuzzleFinished?.();
+            onFinish?.(finalResult);
+          },
+        });
+
+        return;
+      }
+
+      showPopupNotif({
+        type: "error",
+        title: "Gagal Menyimpan",
+        message: response?.data?.message || "Gagal menyimpan progress puzzle.",
+      });
+    } catch (error) {
+      console.error("Gagal submit code puzzle:", error);
+
+      showPopupNotif({
+        type: "error",
+        title: "Terjadi Error",
+        message: error?.response?.data?.message || "Terjadi error saat submit code puzzle.",
+      });
+    } finally {
+      setRunning(false);
     }
-
-    showPopupNotif({
-      type: "error",
-      title: "Gagal Menyimpan",
-      message: response?.data?.message || "Gagal menyimpan progress puzzle.",
-    });
-  } catch (error) {
-    console.error("Gagal submit code puzzle:", error);
-
-    showPopupNotif({
-      type: "error",
-      title: "Terjadi Error",
-      message: "Terjadi error saat submit code puzzle.",
-    });
-  }
-};
+  };
 
   return (
     <div style={P.overlay} onMouseDown={handleClose}>
@@ -357,7 +418,7 @@ const closePopupNotif = () => {
                     </div>
                     <div>
                       <b>Expected:</b>{" "}
-                      <code>{JSON.stringify(testcase.expected_output)}</code>
+                      <code>{JSON.stringify(getExpectedOutput(testcase))}</code>
                     </div>
                   </div>
                 ))}
@@ -380,69 +441,75 @@ const closePopupNotif = () => {
                     <span style={P.dot} />
                     <span style={P.dot} />
                   </div>
-                  <div style={P.fileTab}>
-                    solution.{detail.language === "javascript" ? "js" : "txt"}
-                  </div>
+                  <div style={P.fileTab}>solution.{getFileExtension()}</div>
                 </div>
 
                 <textarea
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  disabled={isSolved}
+                  disabled={isSolved || running}
                   spellCheck={false}
                   style={{
                     ...C.textarea,
-                    ...(isSolved ? C.textareaDisabled : {}),
+                    ...(isSolved || running ? C.textareaDisabled : {}),
                   }}
                 />
               </div>
 
-              <div >
+              <div>
                 {output ? <div style={C.output}>{output}</div> : null}
 
                 {testResults.length > 0 ? (
                   <div style={C.resultBox}>
-                  {testResults.map((result) => (
-                    <div
-                      key={result.index}
-                      style={{
-                        ...C.resultItem,
-                        ...(result.passed ? C.resultPass : C.resultFail),
-                      }}
-                    >
-                      <div style={C.resultTitle}>
-                        {result.passed ? "✅" : "❌"} Testcase {result.index}
-                      </div>
-
-                      <div>
-                        Input: <code>{JSON.stringify(result.input)}</code>
-                      </div>
-
-                      <div>
-                        Expected:{" "}
-                        <code>{JSON.stringify(result.expected_output)}</code>
-                      </div>
-
-                      <div>
-                        Output:{" "}
-                        <code>{JSON.stringify(result.actual_output)}</code>
-                      </div>
-
-                      {result.error ? (
-                        <div>
-                          Error: <code>{result.error}</code>
+                    {testResults.map((result) => (
+                      <div
+                        key={result.index}
+                        style={{
+                          ...C.resultItem,
+                          ...(result.passed ? C.resultPass : C.resultFail),
+                        }}
+                      >
+                        <div style={C.resultTitle}>
+                          {result.passed ? "✅" : "❌"} Testcase {result.index}
                         </div>
-                      ) : null}
-                    </div>
-                  ))}
+
+                        <div>
+                          Input: <code>{JSON.stringify(result.input)}</code>
+                        </div>
+
+                        <div>
+                          Expected:{" "}
+                          <code>{JSON.stringify(result.expected_output)}</code>
+                        </div>
+
+                        <div>
+                          Output:{" "}
+                          <code>{JSON.stringify(result.actual_output)}</code>
+                        </div>
+
+                        {result.error ? (
+                          <div>
+                            Error: <code>{result.error}</code>
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
                   </div>
                 ) : null}
               </div>
 
               {!isSolved ? (
                 <div style={P.actions}>
-                  <button data-tutor="code-submit" style={P.checkBtn} onClick={checkAnswer}>
-                    Submit Code 🚀
+                  <button
+                    data-tutor="code-submit"
+                    style={{
+                      ...P.checkBtn,
+                      ...(running ? C.buttonDisabled : {}),
+                    }}
+                    disabled={running}
+                    onClick={checkAnswer}
+                  >
+                    {running ? "Menjalankan..." : "Submit Code 🚀"}
                   </button>
                 </div>
               ) : (
@@ -458,33 +525,36 @@ const closePopupNotif = () => {
       </div>
 
       {popupNotif ? (
-  <div style={N.overlay} onMouseDown={(e) => e.stopPropagation()}>
-    <div style={N.card}>
-      <div
-        style={{
-          ...N.iconCircle,
-          ...(popupNotif.type === "success" ? N.successIcon : N.errorIcon),
-        }}
-      >
-        {popupNotif.type === "success" ? "✓" : "✕"}
-      </div>
+        <div style={N.overlay} onMouseDown={(e) => e.stopPropagation()}>
+          <div style={N.card}>
+            <div
+              style={{
+                ...N.iconCircle,
+                ...(popupNotif.type === "success"
+                  ? N.successIcon
+                  : N.errorIcon),
+              }}
+            >
+              {popupNotif.type === "success" ? "✓" : "✕"}
+            </div>
 
-      <div style={N.title}>{popupNotif.title}</div>
-      <div style={N.message}>{popupNotif.message}</div>
+            <div style={N.title}>{popupNotif.title}</div>
+            <div style={N.message}>{popupNotif.message}</div>
 
-      <button
-        style={{
-          ...N.button,
-          ...(popupNotif.type === "success" ? N.successBtn : N.errorBtn),
-        }}
-        onClick={closePopupNotif}
-      >
-        Oke
-      </button>
-    </div>
-  </div>
-) : null}
-
+            <button
+              style={{
+                ...N.button,
+                ...(popupNotif.type === "success"
+                  ? N.successBtn
+                  : N.errorBtn),
+              }}
+              onClick={closePopupNotif}
+            >
+              Oke
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <InlineWorkTutor
         open={tutorActive && !isDone}
@@ -734,6 +804,7 @@ function InlineWorkTutor({ open, steps = [] }) {
           }
         }
       `}</style>
+
       {box ? (
         <>
           <div
@@ -804,7 +875,9 @@ function InlineWorkTutor({ open, steps = [] }) {
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          <div style={IT.badge}>Tutorial {index + 1}/{total}</div>
+          <div style={IT.badge}>
+            Tutorial {index + 1}/{total}
+          </div>
           <div style={IT.title}>{step.title}</div>
           <div style={IT.body}>{step.body}</div>
 
@@ -878,7 +951,8 @@ const IT = {
     position: "fixed",
     zIndex: 30000,
     pointerEvents: "auto",
-    transition: "top 280ms ease, left 280ms ease, bottom 280ms ease, transform 280ms ease",
+    transition:
+      "top 280ms ease, left 280ms ease, bottom 280ms ease, transform 280ms ease",
   },
   card: {
     borderRadius: 22,
@@ -941,7 +1015,6 @@ const IT = {
   },
 };
 
-
 const C = {
   textarea: {
     flex: 1,
@@ -961,6 +1034,12 @@ const C = {
   textareaDisabled: {
     opacity: 0.75,
     cursor: "not-allowed",
+  },
+
+  buttonDisabled: {
+    opacity: 0.65,
+    cursor: "not-allowed",
+    filter: "grayscale(0.3)",
   },
 
   testBox: {
@@ -994,6 +1073,7 @@ const C = {
     padding: 12,
     fontSize: 12,
     lineHeight: 1.6,
+    whiteSpace: "pre-line",
   },
 
   resultBox: {
