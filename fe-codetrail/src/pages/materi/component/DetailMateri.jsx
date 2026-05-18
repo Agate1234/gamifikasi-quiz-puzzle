@@ -62,8 +62,10 @@ function MiniInfoCard({ icon, label, value }) {
 export default function DetailMateriModal({ open, onClose, materiData }) {
   if (!materiData) return null;
 
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+
   const fileApiUrl = materiData?.id_materi
-    ? `http://localhost:5000/api/materi/${materiData.id_materi}/file`
+    ? `${API_BASE_URL}/materi/${materiData.id_materi}/file`
     : null;
 
   const tipeFile = (materiData?.tipe_file || "").toLowerCase();
