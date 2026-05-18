@@ -29,7 +29,11 @@ const markdownComponents = {
   code({ inline, className, children, ...props }) {
     const value = String(children || "").replace(/\n$/, "");
 
-    if (inline) {
+    const isInlineCode =
+      inline === true ||
+      (!className && !value.includes("\n") && value.length <= 80);
+
+    if (isInlineCode) {
       return (
         <code style={S.inlineCode} {...props}>
           {children}
@@ -66,7 +70,6 @@ const markdownComponents = {
     return <td style={S.mdTd}>{children}</td>;
   },
 };
-
 
 export default function MateriFullscreen({
   open,
@@ -208,13 +211,13 @@ export default function MateriFullscreen({
             <div style={S.previewBox}>
               {hasMarkdown ? (
                 <article style={S.markdownWrap}>
-                  <ReactMarkdown components={markdownComponents}>{markdownMateri}</ReactMarkdown>
+                  <ReactMarkdown components={markdownComponents}>
+                    {markdownMateri}
+                  </ReactMarkdown>
                 </article>
               ) : (
                 <div style={S.emptyPreview}>
-                  <div style={S.emptyText}>
-                    Materi markdown belum diisi.
-                  </div>
+                  <div style={S.emptyText}>Materi markdown belum diisi.</div>
                 </div>
               )}
             </div>
@@ -446,7 +449,6 @@ const S = {
     overflowWrap: "anywhere",
   },
 
-
   mdH1: {
     fontSize: 30,
     fontWeight: 950,
@@ -605,7 +607,6 @@ const S = {
     borderBottom: "1px solid rgba(255,255,255,0.06)",
     color: "rgba(235,240,255,0.84)",
   },
-
 
   emptyPreview: {
     minHeight: 220,
