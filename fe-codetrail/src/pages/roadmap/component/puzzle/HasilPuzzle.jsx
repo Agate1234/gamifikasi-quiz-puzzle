@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 export default function HasilPuzzle({
   open,
@@ -6,7 +6,31 @@ export default function HasilPuzzle({
   puzzle,
   result,
   onBackToModule,
+  playWinEffect = false,
 }) {
+  const shouldPlayParty =
+    playWinEffect === true ||
+    result?.playWinEffect === true ||
+    result?.justFinished === true ||
+    result?.source === "finish";
+
+  const [showParty, setShowParty] = useState(false);
+
+  useEffect(() => {
+    if (!open || !shouldPlayParty) {
+      setShowParty(false);
+      return;
+    }
+
+    setShowParty(true);
+
+    const timer = window.setTimeout(() => {
+      setShowParty(false);
+    }, 2200);
+
+    return () => window.clearTimeout(timer);
+  }, [open, shouldPlayParty]);
+
   if (!open) return null;
 
   const attempt = result?.attempt ?? puzzle?.attempt ?? 0;
@@ -25,6 +49,8 @@ export default function HasilPuzzle({
 
   return (
     <div style={R.wrap}>
+      {showParty ? <PartyFromBottom /> : null}
+
       <div style={R.content}>
         <div style={R.trophyCircle}>🏆</div>
 
@@ -68,6 +94,105 @@ export default function HasilPuzzle({
           “Learning never exhausts the mind.” — Leonardo da Vinci
         </div>
       </div>
+    </div>
+  );
+}
+
+function PartyFromBottom() {
+  const pieces = [
+    { left: 5, delay: 0.0, size: 8, drift: -18, spin: -320, color: "#5bffd7" },
+    { left: 10, delay: 0.08, size: 6, drift: 22, spin: 280, color: "#9b5cff" },
+    { left: 16, delay: 0.15, size: 7, drift: -28, spin: -410, color: "#ffd166" },
+    { left: 22, delay: 0.04, size: 9, drift: 34, spin: 360, color: "#ff6b9a" },
+    { left: 29, delay: 0.18, size: 6, drift: -16, spin: -260, color: "#6f7cff" },
+    { left: 36, delay: 0.1, size: 8, drift: 26, spin: 330, color: "#5bffd7" },
+    { left: 43, delay: 0.02, size: 7, drift: -30, spin: -370, color: "#ffd166" },
+    { left: 50, delay: 0.14, size: 9, drift: 18, spin: 300, color: "#9b5cff" },
+    { left: 57, delay: 0.06, size: 6, drift: -24, spin: -340, color: "#ff6b9a" },
+    { left: 64, delay: 0.2, size: 8, drift: 30, spin: 390, color: "#5bffd7" },
+    { left: 71, delay: 0.11, size: 7, drift: -20, spin: -300, color: "#ffd166" },
+    { left: 78, delay: 0.03, size: 9, drift: 24, spin: 350, color: "#6f7cff" },
+    { left: 85, delay: 0.16, size: 6, drift: -32, spin: -420, color: "#ff6b9a" },
+    { left: 92, delay: 0.07, size: 8, drift: 16, spin: 260, color: "#5bffd7" },
+  ];
+
+  const streamers = [
+    { left: 12, delay: 0.03, drift: 42, spin: 360, color: "#5bffd7" },
+    { left: 25, delay: 0.12, drift: -38, spin: -380, color: "#ff6b9a" },
+    { left: 41, delay: 0.06, drift: 36, spin: 340, color: "#ffd166" },
+    { left: 59, delay: 0.17, drift: -44, spin: -420, color: "#9b5cff" },
+    { left: 76, delay: 0.09, drift: 40, spin: 390, color: "#6f7cff" },
+    { left: 89, delay: 0.14, drift: -34, spin: -360, color: "#ffd166" },
+  ];
+
+  return (
+    <div style={R.partyLayer} aria-hidden="true">
+      <style>{`
+        @keyframes partyRiseOnce {
+          0% {
+            transform: translate3d(0, 42px, 0) rotate(0deg) scale(0.9);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          78% {
+            opacity: 1;
+          }
+          100% {
+            transform: translate3d(var(--drift), -108vh, 0) rotate(var(--spin)) scale(1.04);
+            opacity: 0;
+          }
+        }
+
+        @keyframes partyStreamerOnce {
+          0% {
+            transform: translate3d(0, 48px, 0) rotate(0deg);
+            opacity: 0;
+          }
+          12% {
+            opacity: 0.95;
+          }
+          82% {
+            opacity: 0.9;
+          }
+          100% {
+            transform: translate3d(var(--drift), -108vh, 0) rotate(var(--spin));
+            opacity: 0;
+          }
+        }
+      `}</style>
+
+      {pieces.map((piece, index) => (
+        <span
+          key={`party-piece-${index}`}
+          style={{
+            ...R.partyPiece,
+            left: `${piece.left}%`,
+            width: piece.size,
+            height: piece.size * 1.35,
+            background: piece.color,
+            borderRadius: index % 3 === 0 ? 999 : 2,
+            animationDelay: `${piece.delay}s`,
+            "--drift": `${piece.drift}px`,
+            "--spin": `${piece.spin}deg`,
+          }}
+        />
+      ))}
+
+      {streamers.map((streamer, index) => (
+        <span
+          key={`party-streamer-${index}`}
+          style={{
+            ...R.partyStreamer,
+            left: `${streamer.left}%`,
+            borderColor: streamer.color,
+            animationDelay: `${streamer.delay}s`,
+            "--drift": `${streamer.drift}px`,
+            "--spin": `${streamer.spin}deg`,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -248,7 +373,50 @@ const R = {
       "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial",
   },
 
+  partyLayer: {
+    position: "fixed",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: 0,
+    zIndex: 0,
+    pointerEvents: "none",
+    overflow: "hidden",
+  },
+
+  partyPiece: {
+    position: "absolute",
+    bottom: -28,
+    display: "block",
+    opacity: 0,
+    animationName: "partyRiseOnce",
+    animationDuration: "1.85s",
+    animationTimingFunction: "cubic-bezier(0.16, 0.78, 0.28, 1)",
+    animationFillMode: "both",
+    animationIterationCount: 1,
+    willChange: "transform, opacity",
+  },
+
+  partyStreamer: {
+    position: "absolute",
+    bottom: -46,
+    width: 18,
+    height: 34,
+    borderStyle: "solid",
+    borderWidth: "0 0 3px 3px",
+    borderRadius: "0 0 0 16px",
+    opacity: 0,
+    animationName: "partyStreamerOnce",
+    animationDuration: "2.05s",
+    animationTimingFunction: "cubic-bezier(0.18, 0.76, 0.3, 1)",
+    animationFillMode: "both",
+    animationIterationCount: 1,
+    willChange: "transform, opacity",
+  },
+
   content: {
+    position: "relative",
+    zIndex: 1,
     width: "min(980px, 94vw)",
     margin: "0 auto",
     textAlign: "center",
@@ -262,7 +430,7 @@ const R = {
     placeItems: "center",
     border: "2px solid rgba(60,255,201,0.22)",
     background: "rgba(60,255,201,0.06)",
-    boxShadow: "0 0 90px rgba(60,255,201,0.16)",
+    boxShadow: "0 0 50px rgba(60,255,201,0.10)",
     fontSize: 58,
     margin: "0 auto 14px",
   },
@@ -342,32 +510,10 @@ const R = {
     fontWeight: 900,
   },
 
-  previewCard: {
-    marginTop: 18,
-    borderRadius: 20,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.03)",
-    padding: 18,
-    textAlign: "left",
-  },
-
   previewTitle: {
     fontSize: 18,
     fontWeight: 950,
     marginBottom: 14,
-  },
-
-  previewGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 14,
-  },
-
-  previewPanel: {
-    borderRadius: 16,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(10,12,22,0.25)",
-    padding: 14,
   },
 
   previewLabel: {
@@ -459,19 +605,9 @@ const R = {
     lineHeight: 1.6,
   },
 
-  testPass: {
-    background: "rgba(60,255,201,0.08)",
-    border: "1px solid rgba(60,255,201,0.18)",
-  },
-
   testFail: {
     background: "rgba(255,80,120,0.08)",
     border: "1px solid rgba(255,80,120,0.18)",
-  },
-
-  testTitle: {
-    fontWeight: 900,
-    marginBottom: 6,
   },
 
   quote: { marginTop: 18, fontSize: 11, opacity: 0.4 },
@@ -486,7 +622,6 @@ const R = {
   testPassStrong: {
     background: "rgba(60,255,201,0.10)",
     border: "1px solid rgba(60,255,201,0.32)",
-    boxShadow: "0 0 28px rgba(60,255,201,0.08)",
   },
 
   testTitleRow: {

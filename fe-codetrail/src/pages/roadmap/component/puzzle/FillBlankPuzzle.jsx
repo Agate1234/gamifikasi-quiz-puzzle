@@ -764,7 +764,7 @@ const IT = {
   },
   dimBlock: {
     position: "fixed",
-    background: "rgba(0,0,0,0.62)",
+    background: "rgba(2, 3, 10, 0.58)",
     backdropFilter: "blur(2px)",
     pointerEvents: "auto",
     transition: "all 260ms ease",
@@ -773,7 +773,7 @@ const IT = {
   fullDim: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.62)",
+    background: "rgba(2, 3, 10, 0.58)",
     backdropFilter: "blur(2px)",
     pointerEvents: "auto",
     zIndex: 29990,
@@ -785,7 +785,7 @@ const IT = {
     borderRadius: 18,
     boxShadow:
       "0 0 28px rgba(91,255,215,0.48), inset 0 0 14px rgba(91,255,215,0.10)",
-    background: "rgba(91,255,215,0.025)",
+    background: "rgba(91,255,215,0.14)",
     pointerEvents: "none",
     transition: "all 260ms ease",
     animation: "inlineTutorGlow 1.7s ease-in-out infinite",
@@ -801,9 +801,9 @@ const IT = {
     borderRadius: 22,
     border: "1px solid rgba(255,255,255,0.12)",
     background:
-      "radial-gradient(700px 360px at 30% 0%, rgba(91,255,215,0.18), rgba(116,86,255,0.16) 38%, rgba(12,14,24,0.98) 100%)",
-    color: "rgba(245,248,255,0.96)",
-    boxShadow: "0 24px 80px rgba(0,0,0,0.48)",
+      "linear-gradient(180deg, #15182a 0%, #0c0e18 100%)",
+    color: "#f5f8ff",
+    boxShadow: "0 24px 80px rgba(0,0,0,0.75)",
     padding: 18,
     fontFamily:
       "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial",
@@ -813,7 +813,7 @@ const IT = {
     padding: "6px 10px",
     borderRadius: 999,
     border: "1px solid rgba(91,255,215,0.22)",
-    background: "rgba(91,255,215,0.10)",
+    background: "#123c38",
     fontSize: 12,
     fontWeight: 900,
     marginBottom: 12,
@@ -827,7 +827,7 @@ const IT = {
   body: {
     fontSize: 14,
     lineHeight: 1.65,
-    opacity: 0.9,
+    opacity: 1,
     whiteSpace: "pre-line",
   },
   actions: {
@@ -839,8 +839,8 @@ const IT = {
   },
   skipBtn: {
     border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.04)",
-    color: "rgba(245,248,255,0.88)",
+    background: "#1b2033",
+    color: "#f5f8ff",
     borderRadius: 12,
     padding: "10px 13px",
     fontWeight: 850,

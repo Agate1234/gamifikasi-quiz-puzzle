@@ -80,6 +80,11 @@ function shouldShowPuzzleTutorByDb(currentPuzzle, allPuzzle = []) {
 
 
 function NodePathSection({ list, tab, onPrimaryAction }) {
+  const currentIndex = (list || []).findIndex((item) => {
+    const locked = item?.status === "preview" || item?.is_unlock === false;
+    return !isProgressDone(item) && !locked;
+  });
+
   return (
     <div style={M.pathWrap}>
       <div
@@ -159,9 +164,10 @@ function NodePathSection({ list, tab, onPrimaryAction }) {
         </svg>
 
         {list.map((item, index) => {
-          const isDone = !!item.done;
-          const isLocked = item.status === "preview";
+          const isDone = isProgressDone(item);
+          const isLocked = item.status === "preview" || item.is_unlock === false;
           const isActive = !isDone && !isLocked;
+          const isCurrentFocus = isActive && index === currentIndex;
           const left = index % 2 === 0;
 
           return (
@@ -174,15 +180,17 @@ function NodePathSection({ list, tab, onPrimaryAction }) {
               }}
             >
               <button
+                className={isCurrentFocus ? "codetrail-current-node" : undefined}
                 onClick={() => {
-  if (isLocked) return;
-  onPrimaryAction(item);
-}}
+                  if (isLocked) return;
+                  onPrimaryAction(item);
+                }}
                 title={item.title}
                 style={{
                   ...M.pathNode,
                   ...(isDone ? M.pathNodeDone : {}),
                   ...(isActive ? M.pathNodeActive : {}),
+                  ...(isCurrentFocus ? M.pathNodeCurrent : {}),
                   ...(isLocked ? M.pathNodeLocked : {}),
                 }}
               >
@@ -201,11 +209,17 @@ function NodePathSection({ list, tab, onPrimaryAction }) {
               </button>
 
               <div
+                className={isCurrentFocus ? "codetrail-current-label" : undefined}
                 style={{
                   ...M.pathLabelCard,
                   ...(left ? M.pathLabelCardLeft : M.pathLabelCardRight),
+                  ...(isCurrentFocus ? M.pathLabelCardCurrent : {}),
                 }}
               >
+                {isCurrentFocus ? (
+                  <div style={M.pathCurrentBadge}>Lanjutkan</div>
+                ) : null}
+
                 <div style={M.pathLabelTitle}>{item.title}</div>
                 <div style={M.pathLabelMeta}>
                   +{item.xp} XP •{" "}
@@ -223,6 +237,47 @@ function NodePathSection({ list, tab, onPrimaryAction }) {
     </div>
   );
 }
+
+const moduleCurrentEffectCss = `
+  @keyframes codetrailCurrentPulse {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow:
+        0 0 0 0 rgba(60, 255, 201, 0.40),
+        0 0 34px rgba(60, 255, 201, 0.28),
+        0 0 56px rgba(140, 86, 255, 0.20);
+    }
+    50% {
+      transform: scale(1.07);
+      box-shadow:
+        0 0 0 14px rgba(60, 255, 201, 0),
+        0 0 46px rgba(60, 255, 201, 0.48),
+        0 0 78px rgba(140, 86, 255, 0.30);
+    }
+  }
+
+  @keyframes codetrailCurrentLabelGlow {
+    0%, 100% {
+      box-shadow:
+        0 14px 34px rgba(0,0,0,0.22),
+        0 0 22px rgba(60, 255, 201, 0.14);
+    }
+    50% {
+      box-shadow:
+        0 18px 42px rgba(0,0,0,0.26),
+        0 0 34px rgba(60, 255, 201, 0.26);
+    }
+  }
+
+  .codetrail-current-node {
+    animation: codetrailCurrentPulse 1.9s ease-in-out infinite;
+  }
+
+  .codetrail-current-label {
+    animation: codetrailCurrentLabelGlow 2.1s ease-in-out infinite;
+  }
+`;
+
 
 export default function ModulePage({
   open,
@@ -629,6 +684,8 @@ export default function ModulePage({
           type: selectedPuzzle.tipe_puzzle || selectedPuzzle.type,
           jawaban: selectedPuzzle.jawaban,
           hasil: selectedPuzzle.hasil,
+          playWinEffect: false,
+          source: "preview",
         },
       });
 
@@ -879,6 +936,7 @@ export default function ModulePage({
 
   return (
     <>
+      <style>{moduleCurrentEffectCss}</style>
       <div style={M.overlay} onMouseDown={onClose}>
         <div style={M.sheet} onMouseDown={(e) => e.stopPropagation()}>
           <div style={M.topBar}>
@@ -1088,7 +1146,12 @@ export default function ModulePage({
               jawaban: res.jawaban,
               hasil: res.hasil,
             },
-            result: res,
+            result: {
+              ...res,
+              playWinEffect: true,
+              justFinished: true,
+              source: "finish",
+            },
           });
 
           setShowPuzzle(false);
@@ -1498,6 +1561,14 @@ const M = {
     boxShadow: "0 0 24px rgba(140,86,255,0.18)",
   },
 
+  pathNodeCurrent: {
+    border: "2px solid rgba(60,255,201,0.95)",
+    background:
+      "radial-gradient(circle at 30% 25%, rgba(60,255,201,0.34), rgba(140,86,255,0.24) 48%, rgba(18,20,38,0.96) 100%)",
+    boxShadow:
+      "0 0 0 5px rgba(60,255,201,0.10), 0 0 34px rgba(60,255,201,0.32), 0 0 58px rgba(140,86,255,0.22)",
+  },
+
   pathNodeLocked: {
     border: "2px solid rgba(255,255,255,0.10)",
     background: "rgba(255,255,255,0.025)",
@@ -1537,6 +1608,30 @@ const M = {
     background: "rgba(255,255,255,0.03)",
     backdropFilter: "blur(8px)",
     boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+  },
+
+  pathLabelCardCurrent: {
+    border: "1px solid rgba(60,255,201,0.42)",
+    background:
+      "linear-gradient(180deg, rgba(15,31,42,0.96), rgba(17,18,36,0.94))",
+    boxShadow:
+      "0 14px 34px rgba(0,0,0,0.22), 0 0 24px rgba(60,255,201,0.18)",
+  },
+
+  pathCurrentBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 7,
+    padding: "4px 8px",
+    borderRadius: 999,
+    border: "1px solid rgba(60,255,201,0.28)",
+    background: "rgba(60,255,201,0.12)",
+    color: "rgba(166,255,231,0.98)",
+    fontSize: 10,
+    fontWeight: 900,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
 
   pathLabelCardLeft: {
