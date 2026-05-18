@@ -1,4 +1,4 @@
-const pool = require('../config/db');
+const pool = require("../config/db");
 
 // GET all quiz
 const getAllQuiz = async (req, res) => {
@@ -21,7 +21,7 @@ const getAllQuiz = async (req, res) => {
        WHERE q.judul_quiz ILIKE $1
           OR q.deskripsi_quiz ILIKE $1
           OR m.judul ILIKE $1`,
-      [search]
+      [search],
     );
 
     const total = parseInt(countResult.rows[0].total, 10);
@@ -52,7 +52,7 @@ const getAllQuiz = async (req, res) => {
          OR m.judul ILIKE $1
       ORDER BY q.id_quiz ASC
       LIMIT $2 OFFSET $3`,
-      [search, limit, offset]
+      [search, limit, offset],
     );
 
     return res.status(200).json({
@@ -96,7 +96,7 @@ const getQuizById = async (req, res) => {
       FROM quiz q
       LEFT JOIN modul m ON m.id_modul = q.id_modul
       WHERE q.id_quiz = $1`,
-      [id]
+      [id],
     );
 
     if (quizResult.rows.length === 0) {
@@ -132,7 +132,7 @@ const getQuizById = async (req, res) => {
         sq.tipe_soal,
         sq.difficulty
       ORDER BY sq.id_soal ASC`,
-      [id]
+      [id],
     );
 
     const mappedQuestions = soalResult.rows.map((item) => ({
@@ -179,35 +179,40 @@ const createQuiz = async (req, res) => {
       is_event,
       exp_quiz,
       id_modul,
+      created_by,
     } = req.body;
 
-    if (!req.user || !req.user.id_user) {
-      return res.status(401).json({
-        success: false,
-        message: "User login tidak ditemukan di token",
-      });
-    }
-
-    if (!judul_quiz || exp_quiz === undefined) {
+    if (!judul_quiz || exp_quiz === undefined || !id_modul) {
       return res.status(400).json({
         success: false,
-        message: "judul_quiz, dan exp_quiz wajib diisi",
+        message: "judul_quiz, exp_quiz, dan id_modul wajib diisi",
       });
     }
 
-    const userResult = await pool.query(
-      "SELECT nama_user FROM users WHERE id_user = $1",
-      [req.user.id_user]
+    const modulResult = await pool.query(
+      "SELECT id_modul FROM modul WHERE id_modul = $1",
+      [id_modul],
     );
 
-    if (userResult.rows.length === 0) {
+    if (modulResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "User login tidak ditemukan",
+        message: "Modul tidak ditemukan",
       });
     }
 
-    const namaUser = userResult.rows[0].nama_user;
+    let namaUser = created_by || "Admin";
+
+    if (req.user?.id_user) {
+      const userResult = await pool.query(
+        "SELECT nama_user FROM users WHERE id_user = $1",
+        [req.user.id_user],
+      );
+
+      if (userResult.rows.length > 0) {
+        namaUser = userResult.rows[0].nama_user;
+      }
+    }
 
     const result = await pool.query(
       `INSERT INTO quiz (
@@ -229,7 +234,7 @@ const createQuiz = async (req, res) => {
         id_modul,
         namaUser,
         null,
-      ]
+      ],
     );
 
     return res.status(201).json({
@@ -249,13 +254,8 @@ const createQuiz = async (req, res) => {
 const updateQuiz = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      judul_quiz,
-      deskripsi_quiz,
-      is_event,
-      exp_quiz,
-      id_modul,
-    } = req.body;
+    const { judul_quiz, deskripsi_quiz, is_event, exp_quiz, id_modul } =
+      req.body;
 
     if (!req.user || !req.user.id_user) {
       return res.status(401).json({
@@ -266,7 +266,7 @@ const updateQuiz = async (req, res) => {
 
     const quizResult = await pool.query(
       "SELECT * FROM quiz WHERE id_quiz = $1",
-      [id]
+      [id],
     );
 
     if (quizResult.rows.length === 0) {
@@ -278,7 +278,7 @@ const updateQuiz = async (req, res) => {
 
     const userResult = await pool.query(
       "SELECT nama_user FROM users WHERE id_user = $1",
-      [req.user.id_user]
+      [req.user.id_user],
     );
 
     if (userResult.rows.length === 0) {
@@ -290,7 +290,7 @@ const updateQuiz = async (req, res) => {
 
     const modulResult = await pool.query(
       "SELECT id_modul FROM modul WHERE id_modul = $1",
-      [id_modul]
+      [id_modul],
     );
 
     const namaUser = userResult.rows[0].nama_user;
@@ -314,7 +314,7 @@ const updateQuiz = async (req, res) => {
         id_modul,
         namaUser,
         id,
-      ]
+      ],
     );
 
     return res.status(200).json({
@@ -332,44 +332,41 @@ const updateQuiz = async (req, res) => {
 
 // DELETE quiz
 const deleteQuiz = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        const checkQuiz = await pool.query(
-            `SELECT * FROM quiz WHERE id_quiz = $1`,
-            [id]
-        );
+    const checkQuiz = await pool.query(
+      `SELECT * FROM quiz WHERE id_quiz = $1`,
+      [id],
+    );
 
-        if (checkQuiz.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Quiz tidak ditemukan'
-            });
-        }
-
-        await pool.query(
-            `DELETE FROM quiz WHERE id_quiz = $1`,
-            [id]
-        );
-
-        return res.status(200).json({
-            success: true,
-            message: 'Quiz berhasil dihapus'
-        });
-    } catch (error) {
-        console.error('deleteQuiz error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Terjadi kesalahan saat menghapus quiz',
-            error: error.message
-        });
+    if (checkQuiz.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Quiz tidak ditemukan",
+      });
     }
+
+    await pool.query(`DELETE FROM quiz WHERE id_quiz = $1`, [id]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Quiz berhasil dihapus",
+    });
+  } catch (error) {
+    console.error("deleteQuiz error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Terjadi kesalahan saat menghapus quiz",
+      error: error.message,
+    });
+  }
 };
 
 module.exports = {
-    getAllQuiz,
-    getQuizById,
-    createQuiz,
-    updateQuiz,
-    deleteQuiz
+  getAllQuiz,
+  getQuizById,
+  createQuiz,
+  updateQuiz,
+  deleteQuiz,
 };

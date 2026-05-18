@@ -219,7 +219,7 @@ const createModul = async (req, res) => {
   const client = await pool.connect();
 
   try {
-    const { judul, deskripsi, exp_modul } = req.body;
+    const { judul, deskripsi, exp_modul, created_by } = req.body;
 
     if (!judul || exp_modul === undefined) {
       return res.status(400).json({
@@ -230,20 +230,18 @@ const createModul = async (req, res) => {
 
     await client.query("BEGIN");
 
-    const userResult = await client.query(
-      "SELECT nama_user FROM users WHERE id_user = $1",
-      [req.user.id_user]
-    );
+    let namaUser = created_by || "Admin";
 
-    if (userResult.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({
-        success: false,
-        message: "User login tidak ditemukan",
-      });
+    if (req.user?.id_user) {
+      const userResult = await client.query(
+        "SELECT nama_user FROM users WHERE id_user = $1",
+        [req.user.id_user]
+      );
+
+      if (userResult.rows.length > 0) {
+        namaUser = userResult.rows[0].nama_user;
+      }
     }
-
-    const namaUser = userResult.rows[0].nama_user;
 
     const lastLevelResult = await client.query(
       "SELECT COALESCE(MAX(level), 0) AS last_level FROM modul"
@@ -276,15 +274,15 @@ const createModul = async (req, res) => {
 
     await client.query(
       `INSERT INTO progress_modul (id_user, id_modul, is_unlock)
-      SELECT u.id_user, $1, false
-      FROM users u
-      WHERE u.id_role = 3
-        AND NOT EXISTS (
-          SELECT 1
-          FROM progress_modul pm
-          WHERE pm.id_user = u.id_user
-            AND pm.id_modul = $1
-        )`,
+       SELECT u.id_user, $1, false
+       FROM users u
+       WHERE u.id_role = 3
+         AND NOT EXISTS (
+           SELECT 1
+           FROM progress_modul pm
+           WHERE pm.id_user = u.id_user
+             AND pm.id_modul = $1
+         )`,
       [newModul.id_modul]
     );
 
@@ -297,6 +295,7 @@ const createModul = async (req, res) => {
     });
   } catch (error) {
     await client.query("ROLLBACK");
+
     return res.status(500).json({
       success: false,
       message: error.message,

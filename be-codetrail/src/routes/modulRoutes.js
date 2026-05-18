@@ -10,10 +10,10 @@ const {
 } = require("../controllers/modulController");
 const authMiddleware = require("../middlewares/authMiddleware");
 
-router.get("/", authMiddleware, getAllModul);
+router.get("/", getAllModul);
 router.get("/:id", getModulById);
-router.post("/", authMiddleware, createModul);
-router.put("/:id", authMiddleware, updateModul);
+router.post("/", createModul);
+router.put("/:id", updateModul);
 router.delete("/:id", deleteModul);
 
 module.exports = router;

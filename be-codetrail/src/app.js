@@ -18,6 +18,7 @@ const mapPuzzleRoutes = require("./routes/mapPuzzleRoutes");
 const achievementRoutes = require("./routes/achievementRoutes");
 const levelRoutes = require("./routes/levelRoutes");
 const leaderboardRoutes = require("./routes/leaderboardRoutes");
+const codeRunnerRoutes = require("./routes/codeRunnerRoutes");
 
 const app = express();
 
@@ -49,5 +50,6 @@ app.use("/api/roadmap/puzzle-map", mapPuzzleRoutes);
 app.use("/api/achievement", achievementRoutes);
 app.use("/api/level", levelRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
+app.use("/api/code-runner", codeRunnerRoutes);
 
 module.exports = app;

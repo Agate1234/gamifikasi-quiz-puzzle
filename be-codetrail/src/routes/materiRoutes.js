@@ -17,8 +17,8 @@ router.get("/", getAllMateri);
 router.get("/:id", getMateriById);
 router.get("/:id/file", viewMateriFile);
 
-router.post("/", authMiddleware, uploadMateri.single("file_materi"), createMateri);
-router.put("/:id", authMiddleware, uploadMateri.single("file_materi"), updateMateri);
-router.delete("/:id", authMiddleware, deleteMateri);
+router.post("/", uploadMateri.single("file_materi"), createMateri);
+router.put("/:id", uploadMateri.single("file_materi"), updateMateri);
+router.delete("/:id", deleteMateri);
 
 module.exports = router;

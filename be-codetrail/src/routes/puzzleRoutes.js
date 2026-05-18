@@ -12,8 +12,8 @@ const authMiddleware = require("../middlewares/authMiddleware");
 
 router.get("/", getAllPuzzle);
 router.get("/:id", getPuzzleById);
-router.post("/", authMiddleware, createPuzzle);
-router.put("/:id", authMiddleware, updatePuzzle);
-router.delete("/:id", authMiddleware, deletePuzzle);
+router.post("/", createPuzzle);
+router.put("/:id", updatePuzzle);
+router.delete("/:id", deletePuzzle);
 
 module.exports = router;

@@ -9,10 +9,10 @@ const {
 } = require("../controllers/soalController");
 const authMiddleware = require("../middlewares/authMiddleware");
 
-router.get("/", authMiddleware, getAllSoal);
-router.get("/:id", authMiddleware, getSoalById);
-router.post("/", authMiddleware, createSoal);
-router.put("/:id", authMiddleware, updateSoal);
-router.delete("/:id", authMiddleware, deleteSoal);
+router.get("/", getAllSoal);
+router.get("/:id", getSoalById);
+router.post("/", createSoal);
+router.put("/:id", updateSoal);
+router.delete("/:id", deleteSoal);
 
 module.exports = router;

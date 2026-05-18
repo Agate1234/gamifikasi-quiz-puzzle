@@ -167,14 +167,8 @@ const createPuzzle = async (req, res) => {
       testcases,
       time_limit_ms,
       memory_limit_mb,
+      created_by,
     } = req.body;
-
-    if (!req.user || !req.user.id_user) {
-      return res.status(401).json({
-        success: false,
-        message: "User login tidak ditemukan di token",
-      });
-    }
 
     if (!judul_puzzle || !id_modul || exp_puzzle === undefined || !tipe_puzzle) {
       return res.status(400).json({
@@ -211,18 +205,6 @@ const createPuzzle = async (req, res) => {
       });
     }
 
-    const userResult = await client.query(
-      "SELECT nama_user FROM users WHERE id_user = $1",
-      [req.user.id_user]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "User login tidak ditemukan",
-      });
-    }
-
     const modulResult = await client.query(
       "SELECT id_modul FROM modul WHERE id_modul = $1",
       [id_modul]
@@ -235,7 +217,18 @@ const createPuzzle = async (req, res) => {
       });
     }
 
-    const namaUser = userResult.rows[0].nama_user;
+    let namaUser = created_by || "Admin";
+
+    if (req.user?.id_user) {
+      const userResult = await client.query(
+        "SELECT nama_user FROM users WHERE id_user = $1",
+        [req.user.id_user]
+      );
+
+      if (userResult.rows.length > 0) {
+        namaUser = userResult.rows[0].nama_user;
+      }
+    }
 
     await client.query("BEGIN");
 
@@ -258,7 +251,7 @@ const createPuzzle = async (req, res) => {
         deskripsi_puzzle || null,
         tipe_puzzle,
         difficulty_puzzle,
-        is_event,
+        is_event ?? false,
         exp_puzzle,
         id_modul,
         namaUser,
@@ -359,11 +352,7 @@ const createPuzzle = async (req, res) => {
         });
       }
 
-      if (
-        !testcases ||
-        !Array.isArray(testcases) ||
-        testcases.length === 0
-      ) {
+      if (!testcases || !Array.isArray(testcases) || testcases.length === 0) {
         await client.query("ROLLBACK");
         return res.status(400).json({
           success: false,
