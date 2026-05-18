@@ -409,8 +409,15 @@ export default function RoadmapMahasiswa() {
     (item) => item.status !== "locked",
   );
 
+  const firstPlayableIndexRaw = modules.findIndex((item) => {
+    return item.status !== "locked" && !isModuleDone(item);
+  });
+
   const firstUnlockedIndex =
     firstUnlockedIndexRaw >= 0 ? firstUnlockedIndexRaw : 0;
+
+  const currentModuleIndex =
+    firstPlayableIndexRaw >= 0 ? firstPlayableIndexRaw : firstUnlockedIndex;
 
   return (
     <div style={styles.page}>
@@ -426,6 +433,125 @@ export default function RoadmapMahasiswa() {
               box-shadow:
                 0 0 44px rgba(60,255,201,0.95),
                 inset 0 0 22px rgba(60,255,201,0.18);
+            }
+          }
+
+          @keyframes roadmapCardEnter {
+            0% {
+              transform: translateY(16px);
+              opacity: 0;
+            }
+            100% {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+
+          @keyframes roadmapCurrentCardPulse {
+            0%, 100% {
+              box-shadow:
+                0 12px 32px rgba(0,0,0,0.28),
+                0 0 0 0 rgba(60,255,201,0.34),
+                0 0 26px rgba(60,255,201,0.13);
+            }
+            50% {
+              box-shadow:
+                0 16px 42px rgba(0,0,0,0.32),
+                0 0 0 8px rgba(60,255,201,0),
+                0 0 38px rgba(60,255,201,0.25);
+            }
+          }
+
+          @keyframes roadmapNodePulse {
+            0%, 100% {
+              transform: scale(1);
+              box-shadow:
+                0 0 18px rgba(60,255,201,0.18),
+                0 0 0 0 rgba(60,255,201,0.30);
+            }
+            50% {
+              transform: scale(1.08);
+              box-shadow:
+                0 0 28px rgba(60,255,201,0.34),
+                0 0 0 9px rgba(60,255,201,0);
+            }
+          }
+
+          @keyframes roadmapLineFlow {
+            0% {
+              background-position: 0 0;
+            }
+            100% {
+              background-position: 0 260px;
+            }
+          }
+
+          @keyframes roadmapProgressShimmer {
+            0% {
+              background-position: -120px 0;
+            }
+            100% {
+              background-position: 240px 0;
+            }
+          }
+
+          @keyframes roadmapStepDonePulse {
+            0%, 100% {
+              transform: scale(1);
+            }
+            50% {
+              transform: scale(1.08);
+            }
+          }
+
+          .roadmap-module-card {
+            animation: roadmapCardEnter 360ms ease both;
+          }
+
+          .roadmap-module-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(60,255,201,0.28) !important;
+            box-shadow:
+              0 18px 44px rgba(0,0,0,0.34),
+              0 0 28px rgba(60,255,201,0.10) !important;
+          }
+
+          .roadmap-current-card {
+            animation:
+              roadmapCardEnter 360ms ease both,
+              roadmapCurrentCardPulse 2.2s ease-in-out infinite;
+            border-color: rgba(60,255,201,0.36) !important;
+            background:
+              radial-gradient(700px 240px at 20% 0%, rgba(60,255,201,0.13), rgba(255,255,255,0.035) 46%, rgba(255,255,255,0.025) 100%) !important;
+          }
+
+          .roadmap-current-node {
+            animation: roadmapNodePulse 1.8s ease-in-out infinite;
+          }
+
+          .roadmap-timeline-flow {
+            background-size: 100% 260px !important;
+            animation: roadmapLineFlow 6s linear infinite;
+          }
+
+          .roadmap-progress-fill {
+            background-size: 260px 100% !important;
+            animation: roadmapProgressShimmer 2.6s linear infinite;
+          }
+
+          .roadmap-step-done {
+            animation: roadmapStepDonePulse 2.2s ease-in-out infinite;
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .roadmap-module-card,
+            .roadmap-current-card,
+            .roadmap-current-node,
+            .roadmap-timeline-flow,
+            .roadmap-progress-fill,
+            .roadmap-step-done {
+              animation: none !important;
+              transition: none !important;
             }
           }
 
@@ -453,7 +579,7 @@ export default function RoadmapMahasiswa() {
 
       <main style={styles.main}>
         <div style={styles.timelineWrap} data-tour="roadmap">
-          <div style={styles.timelineLine} />
+          <div className="roadmap-timeline-flow" style={styles.timelineLine} />
 
           <div style={styles.timelineContent}>
             {modules.map((mod, idx) => {
@@ -463,6 +589,7 @@ export default function RoadmapMahasiswa() {
               const locked = mod.status === "locked";
               const selected = selectedId === mod.id;
               const isFirstUnlocked = idx === firstUnlockedIndex;
+              const isCurrentModule = idx === currentModuleIndex && !locked;
 
               return (
                 <div key={mod.id} className="roadmap-row" style={styles.row}>
@@ -474,6 +601,7 @@ export default function RoadmapMahasiswa() {
                       <ModuleCard
                         mod={mod}
                         selected={selected}
+                        isCurrent={isCurrentModule}
                         tourTarget={
                           isFirstUnlocked ? "first-module" : undefined
                         }
@@ -488,6 +616,7 @@ export default function RoadmapMahasiswa() {
 
                   <div className="roadmap-center" style={styles.centerCol}>
                     <div
+                      className={isCurrentModule ? "roadmap-current-node" : undefined}
                       style={{
                         ...styles.node,
                         ...(locked ? styles.nodeLocked : {}),
@@ -514,6 +643,7 @@ export default function RoadmapMahasiswa() {
                       <ModuleCard
                         mod={mod}
                         selected={selected}
+                        isCurrent={isCurrentModule}
                         tourTarget={
                           isFirstUnlocked ? "first-module" : undefined
                         }
@@ -555,13 +685,19 @@ function StatusBadge({ status, done }) {
   return <span style={{ ...styles.badge, ...style }}>{text}</span>;
 }
 
-function ModuleCard({ mod, selected, onClick, tourTarget }) {
+function ModuleCard({ mod, selected, isCurrent, onClick, tourTarget }) {
   const done = isModuleDone(mod);
   const completion = Math.round(moduleCompletion(mod) * 100);
   const locked = mod.status === "locked";
 
   return (
     <div
+      className={[
+        "roadmap-module-card",
+        isCurrent ? "roadmap-current-card" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       data-tour={tourTarget}
       onClick={locked ? undefined : onClick}
       role={locked ? undefined : "button"}
@@ -579,6 +715,10 @@ function ModuleCard({ mod, selected, onClick, tourTarget }) {
           <div style={styles.cardXp}>{mod.xp} XP</div>
         </div>
 
+        {isCurrent ? (
+          <div style={styles.currentModuleBadge}>Lanjutkan Modul Ini</div>
+        ) : null}
+
         <div style={styles.cardSub}>
           {mod.level} • <StatusBadge status={mod.status} done={done} />
         </div>
@@ -589,6 +729,7 @@ function ModuleCard({ mod, selected, onClick, tourTarget }) {
       <div style={styles.cardProgressRow}>
         <div style={styles.cardProgressOuter}>
           <div
+            className={completion > 0 && completion < 100 ? "roadmap-progress-fill" : undefined}
             style={{
               ...styles.cardProgressInner,
               width: `${completion}%`,
@@ -604,6 +745,7 @@ function ModuleCard({ mod, selected, onClick, tourTarget }) {
           mod.activities.map((a) => (
             <div
               key={a.key}
+              className={a.done ? "roadmap-step-done" : undefined}
               style={{
                 ...styles.step,
                 ...(a.done ? styles.stepDone : styles.stepTodo),
@@ -1124,8 +1266,8 @@ const styles = {
     width: 2,
     transform: "translateX(-1px)",
     background:
-      "linear-gradient(180deg, rgba(60,255,201,0) 0%, rgba(60,255,201,0.6) 25%, rgba(140,86,255,0.7) 65%, rgba(140,86,255,0) 100%)",
-    opacity: 0.6,
+      "linear-gradient(180deg, rgba(60,255,201,0) 0%, rgba(60,255,201,0.55) 22%, rgba(140,86,255,0.72) 48%, rgba(60,255,201,0.50) 72%, rgba(140,86,255,0) 100%)",
+    opacity: 0.72,
   },
 
   timelineContent: {
@@ -1201,7 +1343,7 @@ const styles = {
     border: "1px solid rgba(255,255,255,0.10)",
     background: "rgba(255,255,255,0.03)",
     cursor: "pointer",
-    transition: "transform 120ms ease, border-color 120ms ease",
+    transition: "transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease",
     boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
   },
 
@@ -1240,6 +1382,19 @@ const styles = {
     border: "1px solid rgba(140,86,255,0.22)",
   },
 
+  currentModuleBadge: {
+    width: "fit-content",
+    padding: "5px 9px",
+    borderRadius: 999,
+    border: "1px solid rgba(60,255,201,0.28)",
+    background: "rgba(60,255,201,0.10)",
+    color: "rgba(181,255,235,0.98)",
+    fontSize: 10,
+    fontWeight: 900,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+
   cardSub: {
     fontSize: 12,
     opacity: 0.85,
@@ -1275,7 +1430,7 @@ const styles = {
     height: "100%",
     borderRadius: 999,
     background:
-      "linear-gradient(90deg, rgba(60,255,201,0.85), rgba(140,86,255,0.85))",
+      "linear-gradient(90deg, rgba(60,255,201,0.85), rgba(140,86,255,0.85), rgba(255,255,255,0.24), rgba(140,86,255,0.85), rgba(60,255,201,0.85))",
   },
 
   cardProgressText: {
@@ -1310,8 +1465,9 @@ const styles = {
   },
 
   stepDone: {
-    border: "1px solid rgba(60,255,201,0.30)",
-    background: "rgba(60,255,201,0.10)",
+    border: "1px solid rgba(60,255,201,0.34)",
+    background: "rgba(60,255,201,0.12)",
+    boxShadow: "0 0 14px rgba(60,255,201,0.10)",
   },
 
   stepTodo: {},
