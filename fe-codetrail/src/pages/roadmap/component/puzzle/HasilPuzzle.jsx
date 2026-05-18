@@ -1,5 +1,4 @@
 import React from "react";
-import GuidedTutor from "../GuidedTutor";
 
 export default function HasilPuzzle({
   open,
@@ -7,7 +6,6 @@ export default function HasilPuzzle({
   puzzle,
   result,
   onBackToModule,
-  tutorActive = false,
 }) {
   if (!open) return null;
 
@@ -37,7 +35,7 @@ export default function HasilPuzzle({
           <span style={R.linkLike}>{puzzleTitle}</span>
         </div>
 
-        <div style={R.card} data-tutor="puzzle-result-card">
+        <div style={R.card}>
           <div style={R.smallLabel}>TOTAL ATTEMPT</div>
 
           <div style={R.scoreRow}>
@@ -53,7 +51,7 @@ export default function HasilPuzzle({
           </div>
 
           <div style={R.actions}>
-            <button data-tutor="puzzle-back-result" style={R.primaryBtn} onClick={onBackToModule}>
+            <button style={R.primaryBtn} onClick={onBackToModule}>
               ← Kembali ke Modul
             </button>
           </div>
@@ -69,24 +67,6 @@ export default function HasilPuzzle({
         <div style={R.quote}>
           “Learning never exhausts the mind.” — Leonardo da Vinci
         </div>
-
-        <GuidedTutor
-          open={tutorActive}
-          steps={[
-            {
-              title: "Hasil Puzzle",
-              body: "Ini ringkasan attempt, XP didapat, waktu pengerjaan, tipe puzzle, dan status selesai.",
-              target: '[data-tutor="puzzle-result-card"]',
-            },
-            {
-              title: "Kembali ke Modul",
-              body: "Klik kembali ke modul. Setelah itu tutorial akan menunjukkan bahwa puzzle yang selesai bisa dipreview juga.",
-              target: '[data-tutor="puzzle-back-result"]',
-              actionLabel: "Kembali ke Modul",
-              onAction: () => onBackToModule?.(),
-            },
-          ]}
-        />
       </div>
     </div>
   );

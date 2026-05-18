@@ -2446,18 +2446,19 @@ setHealth(Math.min(INITIAL_HEALTH, baseHealth));
 
             <div style={S.main}>
               <div style={S.mainInner}>
-                <div style={S.progressWrap}>
-                  <div style={S.progressOuter}>
-                    <div
-                      style={{
-                        ...S.progressInner,
-                        width: `${progress * 100}%`,
-                      }}
-                    />
+                <div style={S.quizLayoutFrame}>
+                  <div style={S.progressWrap}>
+                    <div style={S.progressOuter}>
+                      <div
+                        style={{
+                          ...S.progressInner,
+                          width: `${progress * 100}%`,
+                        }}
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div style={S.contentArea}>
+                  <div style={S.contentArea}>
                   <div style={S.playerColumn}>
                     <div style={S.profileHpCard}>
                       <div style={S.profileTop}>
@@ -2547,7 +2548,7 @@ setHealth(Math.min(INITIAL_HEALTH, baseHealth));
                                         </span>
 
                                         <span style={S.chevron}>
-                                          {isOpen ? "⌃" : "⌄"}
+                                          {isOpen ? "▲" : "▼"}
                                         </span>
                                       </div>
                                     </button>
@@ -2787,6 +2788,7 @@ setHealth(Math.min(INITIAL_HEALTH, baseHealth));
                         </div>
                       </div>
                     )}
+                  </div>
                   </div>
                 </div>
               </div>
@@ -3411,7 +3413,13 @@ const S = {
     margin: "0 auto",
   },
 
+  quizLayoutFrame: {
+    width: "min(100%, 1378px)",
+    margin: "0 auto",
+  },
+
   progressWrap: {
+    width: "100%",
     marginBottom: 22,
   },
 
@@ -3433,23 +3441,23 @@ const S = {
   },
 
   contentArea: {
-    display: "flex",
+    display: "grid",
+    gridTemplateColumns: "minmax(280px, 390px) minmax(0, 960px)",
     alignItems: "flex-start",
     gap: 28,
     width: "100%",
   },
 
   playerColumn: {
-    width: 390,
-    flexShrink: 0,
+    width: "100%",
+    minWidth: 0,
     display: "flex",
     alignItems: "flex-start",
   },
 
   soalColumn: {
-    flex: 1,
+    width: "100%",
     minWidth: 0,
-    maxWidth: 960,
   },
 
   profileHpCard: {
@@ -3569,10 +3577,10 @@ const S = {
     background: "transparent",
     color: "#eef2ff",
     cursor: "pointer",
-    padding: 12,
+    padding: "12px 12px",
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 10,
     textAlign: "left",
   },
@@ -3585,8 +3593,10 @@ const S = {
   skillHeaderRight: {
     display: "flex",
     alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     flexShrink: 0,
+    alignSelf: "center",
   },
 
   skillName: {
@@ -3603,15 +3613,18 @@ const S = {
   },
 
   chevron: {
-    width: 22,
-    height: 22,
+    width: 26,
+    height: 26,
     borderRadius: 999,
-    display: "grid",
-    placeItems: "center",
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    color: "rgba(238,242,255,0.72)",
-    fontWeight: 900,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "rgba(255,255,255,0.055)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    color: "rgba(238,242,255,0.78)",
+    fontSize: 10,
+    fontWeight: 950,
+    lineHeight: 1,
   },
 
   skillCollapseBody: {
@@ -3620,11 +3633,17 @@ const S = {
   },
 
   skillTypeBadge: {
+    minWidth: 46,
+    height: 26,
     flexShrink: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
     fontSize: 10,
     fontWeight: 950,
-    padding: "5px 8px",
+    padding: "0 10px",
     borderRadius: 999,
+    lineHeight: 1,
   },
 
   skillTypeActive: {

@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-import GuidedTutor from "../GuidedTutor";
 
 export default function HasilQuiz({
   open,
@@ -9,8 +8,6 @@ export default function HasilQuiz({
   onShowKey,
   questions = [],
   selectedMap = {},
-  tutorActive = false,
-  onTutorDone,
 }) {
   const [showKey, setShowKey] = useState(false);
 
@@ -50,7 +47,7 @@ export default function HasilQuiz({
           <span style={R.linkLike}>{quizTitle}</span>
         </div>
 
-        <div style={R.card} data-tutor="quiz-result-card">
+        <div style={R.card}>
           <div style={R.smallLabel}>TOTAL SKOR</div>
 
           <div style={R.scoreRow}>
@@ -67,7 +64,6 @@ export default function HasilQuiz({
 
           <div style={R.actions}>
             <button
-              data-tutor="quiz-key-btn"
               style={R.secondaryBtn}
               onClick={() => {
                 const next = !showKey;
@@ -85,7 +81,7 @@ export default function HasilQuiz({
         </div>
 
         {showKey ? (
-          <div style={R.answerKeyCard} data-tutor="quiz-answer-key">
+          <div style={R.answerKeyCard}>
             <div style={R.previewTitle}>Review Jawaban Quiz</div>
 
             {review.length > 0 ? (
@@ -135,44 +131,6 @@ export default function HasilQuiz({
         <div style={R.quote}>
           “Learning never exhausts the mind.” — Leonardo da Vinci
         </div>
-
-        <GuidedTutor
-          open={tutorActive}
-          steps={
-            showKey
-              ? [
-                  {
-                    title: "Kunci Jawaban",
-                    body: "Di sini kamu bisa melihat review jawaban setelah quiz selesai. Bagian ini berguna buat mengecek soal yang benar atau salah.",
-                    target: '[data-tutor="quiz-answer-key"]',
-                  },
-                  {
-                    title: "Kembali ke Modul",
-                    body: "Setelah paham hasil dan kunci jawaban, kembali ke modul untuk melihat preview quiz dan lanjut ke puzzle.",
-                    target: '[data-tutor="quiz-result-card"]',
-                    actionLabel: "Kembali ke Modul",
-                    onAction: () => onTutorDone?.(),
-                  },
-                ]
-              : [
-                  {
-                    title: "Hasil Quiz",
-                    body: "Ini ringkasan hasil quiz: skor, XP didapat, akurasi, waktu, dan jumlah soal.",
-                    target: '[data-tutor="quiz-result-card"]',
-                  },
-                  {
-                    title: "Lihat Kunci Jawaban",
-                    body: "Klik tombol ini untuk membuka kunci jawaban dan review setelah quiz selesai.",
-                    target: '[data-tutor="quiz-key-btn"]',
-                    actionLabel: "Buka Kunci Jawaban",
-                    onAction: () => {
-                      setShowKey(true);
-                      onShowKey?.(true);
-                    },
-                  },
-                ]
-          }
-        />
       </div>
     </div>
   );
@@ -329,26 +287,18 @@ function getAnswerIds(answerData = [], fallbackIds = []) {
     .filter((id) => !Number.isNaN(id) && id !== null);
 }
 
-function formatAnswers(data = []) {
-  const answers = normalizeAnswerArray(data);
-
-  if (!answers.length) return "-";
-
-  return answers.map((item) => item.text).join(", ");
-}
-
 const R = {
   wrap: {
-  position: "fixed",
-  inset: 0,
-  zIndex: 13000,
-  background: "#060816",
-  overflowY: "auto",
-  padding: 22,
-  color: "rgba(235,240,255,0.92)",
-  fontFamily:
-    "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial",
-},
+    position: "fixed",
+    inset: 0,
+    zIndex: 13000,
+    background: "#060816",
+    overflowY: "auto",
+    padding: 22,
+    color: "rgba(235,240,255,0.92)",
+    fontFamily:
+      "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial",
+  },
 
   content: {
     width: "min(980px, 94vw)",
@@ -369,16 +319,16 @@ const R = {
     margin: "0 auto 14px",
   },
 
- card: {
-  width: "min(560px, 92vw)",
-  margin: "18px auto 18px",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "#0d1020",
-  padding: 18,
-  boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
-  textAlign: "left",
-},
+  card: {
+    width: "min(560px, 92vw)",
+    margin: "18px auto 18px",
+    borderRadius: 18,
+    border: "1px solid rgba(255,255,255,0.10)",
+    background: "#0d1020",
+    padding: 18,
+    boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
+    textAlign: "left",
+  },
 
   title: { fontSize: 28, fontWeight: 950 },
   subtitle: { marginTop: 6, fontSize: 12, opacity: 0.75 },
@@ -456,15 +406,15 @@ const R = {
   },
 
   answerKeyCard: {
-  width: "min(820px, 94vw)",
-  margin: "18px auto 18px",
-  borderRadius: 20,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "#0d1020",
-  padding: 24,
-  boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
-  textAlign: "left",
-},
+    width: "min(820px, 94vw)",
+    margin: "18px auto 18px",
+    borderRadius: 20,
+    border: "1px solid rgba(255,255,255,0.10)",
+    background: "#0d1020",
+    padding: 24,
+    boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
+    textAlign: "left",
+  },
 
   previewTitle: {
     fontSize: 22,
@@ -557,14 +507,14 @@ const R = {
   },
 
   optionRow: {
-  display: "flex",
-  alignItems: "center",
-  gap: 12,
-  padding: "13px 15px",
-  borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "#111525",
-},
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "13px 15px",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.10)",
+    background: "#111525",
+  },
 
   optionRowCorrect: {
     border: "1px solid rgba(60,255,201,0.24)",
@@ -614,45 +564,11 @@ const R = {
     color: "rgba(245,247,255,0.94)",
   },
 
-  optionBadges: {
-    marginTop: 7,
-    display: "flex",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-
-  userBadge: {
-    fontSize: 11,
-    fontWeight: 850,
-    padding: "4px 8px",
-    borderRadius: 999,
-    color: "rgba(210,220,255,0.95)",
-    border: "1px solid rgba(140,86,255,0.28)",
-    background: "rgba(140,86,255,0.12)",
-  },
-
-  correctBadge: {
-    fontSize: 11,
-    fontWeight: 850,
-    padding: "4px 8px",
-    borderRadius: 999,
-    color: "rgba(210,255,240,0.95)",
-    border: "1px solid rgba(60,255,201,0.28)",
-    background: "rgba(60,255,201,0.10)",
-  },
-
   summaryBox: {
     display: "grid",
     gridTemplateColumns: "1fr",
     gap: 10,
     marginTop: 12,
-  },
-
-  answerBlock: {
-    borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.025)",
-    padding: "12px 14px",
   },
 
   answerRow: {
@@ -698,12 +614,12 @@ const R = {
   },
 
   correctAnswerCard: {
-  marginTop: 14,
-  borderRadius: 14,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "#111525",
-  padding: "12px 14px",
-},
+    marginTop: 14,
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.10)",
+    background: "#111525",
+    padding: "12px 14px",
+  },
 
   correctAnswerTitle: {
     fontSize: 12,
