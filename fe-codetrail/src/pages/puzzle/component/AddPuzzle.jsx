@@ -24,7 +24,7 @@ import {
   createPuzzleApi,
   updatePuzzleApi,
 } from "../../../components/api/puzzle";
-import { NotifAlert, NotifToast } from "../../../components/Global/ToastNotif";
+import { NotifAlert, NotifToast } from "../../../components/global/ToastNotif";
 
 const { Text } = Typography;
 

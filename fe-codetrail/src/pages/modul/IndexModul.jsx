@@ -26,7 +26,7 @@ import {
   getModuleByIdApi,
   deleteModuleApi,
 } from "../../components/api/modul";
-import { NotifAlert, NotifToast } from "../../components/Global/ToastNotif";
+import { NotifAlert, NotifToast } from "../../components/global/ToastNotif";
 
 // ambil list modul dari API
 async function getModules(param) {

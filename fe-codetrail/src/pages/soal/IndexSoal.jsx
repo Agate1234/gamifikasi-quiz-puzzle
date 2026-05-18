@@ -13,7 +13,7 @@ import { PlusOutlined, MoreOutlined, SearchOutlined } from "@ant-design/icons";
 import TableList from "../../components/global/TableList.jsx";
 import AddSoalModal from "./component/AddSoal.jsx";
 import { getSoalApi, deleteSoalApi } from "../../components/api/soal";
-import { NotifAlert, NotifToast } from "../../components/Global/ToastNotif";
+import { NotifAlert, NotifToast } from "../../components/global/ToastNotif";
 
 async function getSoal(param) {
   const params = new URLSearchParams(param);

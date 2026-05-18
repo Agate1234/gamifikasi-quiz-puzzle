@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+pdfjsLib.globalWorkerOptions.workerSrc = pdfWorker;
 
 function normalizePdfTextToMarkdown(text = "", title = "") {
   const rawLines = String(text)

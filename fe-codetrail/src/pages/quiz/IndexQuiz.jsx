@@ -29,7 +29,7 @@ import {
   deleteQuizApi,
 } from "../../components/api/quiz";
 import { getModulesApi } from "../../components/api/modul";
-import { NotifAlert, NotifToast } from "../../components/Global/ToastNotif";
+import { NotifAlert, NotifToast } from "../../components/global/ToastNotif";
 
 // ambil list quiz dari API
 async function getQuiz(param) {

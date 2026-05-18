@@ -14,7 +14,7 @@ import {
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { createSoalApi, updateSoalApi } from "../../../components/api/soal";
 import { getQuizApi } from "../../../components/api/quiz";
-import { NotifAlert, NotifToast } from "../../../components/Global/ToastNotif";
+import { NotifAlert, NotifToast } from "../../../components/global/ToastNotif";
 
 const { Text } = Typography;
 

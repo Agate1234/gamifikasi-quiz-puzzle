@@ -8,7 +8,7 @@ import {
 import {
   NotifAlert,
   NotifToast,
-} from "../../../components/Global/ToastNotif";
+} from "../../../components/global/ToastNotif";
 
 const { Text } = Typography;
 

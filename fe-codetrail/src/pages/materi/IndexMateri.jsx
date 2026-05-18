@@ -21,7 +21,7 @@ import TableList from "../../components/global/TableList.jsx";
 import AddMateriModal from "./component/AddMateri.jsx";
 import DetailMateriModal from "./component/DetailMateri.jsx";
 import { getMateriApi, deleteMateriApi } from "../../components/api/materi";
-import { NotifAlert, NotifToast } from "../../components/Global/ToastNotif";
+import { NotifAlert, NotifToast } from "../../components/global/ToastNotif";
 
 // ====== GET DATA ======
 async function getMateri(param) {

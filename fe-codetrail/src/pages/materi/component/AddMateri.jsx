@@ -21,7 +21,7 @@ import {
   updateMateriApi,
 } from "../../../components/api/materi";
 import { getModulesApi } from "../../../components/api/modul";
-import { NotifAlert, NotifToast } from "../../../components/Global/ToastNotif";
+import { NotifAlert, NotifToast } from "../../../components/global/ToastNotif";
 
 const { Text } = Typography;
 
