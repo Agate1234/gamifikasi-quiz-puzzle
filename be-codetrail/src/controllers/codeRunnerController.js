@@ -61,17 +61,50 @@ const toJavaArgument = (arg) => {
   return JSON.stringify(String(arg));
 };
 
-const buildJavaMainFile = ({ userCode, className, functionName, input }) => {
+const buildJavaMainFile = ({
+  userCode,
+  className,
+  functionName,
+  getterName,
+  constructorInputCount,
+  input,
+}) => {
   const args = Array.isArray(input) ? input : [];
-  const javaArgs = args.map(toJavaArgument).join(", ");
+
+  const safeConstructorInputCount = Math.max(
+    0,
+    Number(constructorInputCount || 0),
+  );
+
+  const constructorArgs = args
+    .slice(0, safeConstructorInputCount)
+    .map(toJavaArgument)
+    .join(", ");
+
+  const methodArgs = args
+    .slice(safeConstructorInputCount)
+    .map(toJavaArgument)
+    .join(", ");
+
+  const createObjectLine =
+    safeConstructorInputCount > 0
+      ? `${className} solution = new ${className}(${constructorArgs});`
+      : `${className} solution = new ${className}();`;
+
+  const runMethodLine = getterName
+    ? `
+    solution.${functionName}(${methodArgs});
+    Object result = solution.${getterName}();`
+    : `
+    Object result = solution.${functionName}(${methodArgs});`;
 
   return `
 ${userCode}
 
 class Main {
   public static void main(String[] args) {
-    ${className} solution = new ${className}();
-    Object result = solution.${functionName}(${javaArgs});
+    ${createObjectLine}
+    ${runMethodLine}
     System.out.print(result);
   }
 }
@@ -81,6 +114,8 @@ class Main {
 const runJavaTestcases = async ({
   code,
   function_name,
+  getter_name,
+  constructor_input_count,
   testcases,
   time_limit_ms,
 }) => {
@@ -92,6 +127,7 @@ const runJavaTestcases = async ({
   const classNameMatch = String(code || "").match(
     /class\s+([A-Za-z_][A-Za-z0-9_]*)/,
   );
+
   const className = classNameMatch?.[1] || "Solution";
 
   const results = [];
@@ -109,6 +145,8 @@ const runJavaTestcases = async ({
         userCode: code,
         className,
         functionName: function_name,
+        getterName: getter_name,
+        constructorInputCount: constructor_input_count,
         input: testcase.input,
       });
 
@@ -191,7 +229,15 @@ const runJavaTestcases = async ({
 
 const runCode = async (req, res) => {
   try {
-    const { language, code, function_name, testcases, time_limit_ms } = req.body;
+    const {
+      language,
+      code,
+      function_name,
+      getter_name,
+      constructor_input_count,
+      testcases,
+      time_limit_ms,
+    } = req.body;
 
     if (!language || !code || !function_name) {
       return res.status(400).json({
@@ -219,6 +265,8 @@ const runCode = async (req, res) => {
     const result = await runJavaTestcases({
       code,
       function_name,
+      getter_name,
+      constructor_input_count,
       testcases,
       time_limit_ms,
     });
