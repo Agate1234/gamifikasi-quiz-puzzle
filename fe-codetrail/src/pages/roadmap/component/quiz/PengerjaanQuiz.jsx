@@ -612,7 +612,7 @@ export default function QuizFullscreen({
   onTutorQuizFinished,
 }) {
   const INITIAL_HEALTH = 100;
-  const QUIZ_TOTAL_SECONDS = 30 * 60;
+  const QUIZ_TOTAL_SECONDS = 15 * 60;
 
   const [currentSoal, setCurrentSoal] = useState(null);
   const [selected, setSelected] = useState([]);
