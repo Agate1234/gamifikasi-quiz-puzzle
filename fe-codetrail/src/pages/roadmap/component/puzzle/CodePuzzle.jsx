@@ -82,7 +82,9 @@ export default function CodePuzzle({
   if (!open) return null;
 
   const normalizeLanguage = (value) => {
-    return String(value || "").toLowerCase().trim();
+    return String(value || "")
+      .toLowerCase()
+      .trim();
   };
 
   const getFileExtension = () => {
@@ -193,6 +195,8 @@ export default function CodePuzzle({
       language: detail.language,
       code,
       function_name: detail.function_name,
+      getter_name: detail.getter_name,
+      constructor_input_count: detail.constructor_input_count || 0,
       testcases: detail.testcases || [],
       time_limit_ms: detail.time_limit_ms || 1000,
     });
@@ -344,7 +348,9 @@ export default function CodePuzzle({
       showPopupNotif({
         type: "error",
         title: "Terjadi Error",
-        message: error?.response?.data?.message || "Terjadi error saat submit code puzzle.",
+        message:
+          error?.response?.data?.message ||
+          "Terjadi error saat submit code puzzle.",
       });
     } finally {
       setRunning(false);
@@ -544,9 +550,7 @@ export default function CodePuzzle({
             <button
               style={{
                 ...N.button,
-                ...(popupNotif.type === "success"
-                  ? N.successBtn
-                  : N.errorBtn),
+                ...(popupNotif.type === "success" ? N.successBtn : N.errorBtn),
               }}
               onClick={closePopupNotif}
             >
@@ -957,8 +961,7 @@ const IT = {
   card: {
     borderRadius: 22,
     border: "1px solid rgba(255,255,255,0.12)",
-    background:
-      "linear-gradient(180deg, #15182a 0%, #0c0e18 100%)",
+    background: "linear-gradient(180deg, #15182a 0%, #0c0e18 100%)",
     color: "#f5f8ff",
     boxShadow: "0 24px 80px rgba(0,0,0,0.75)",
     padding: 18,
