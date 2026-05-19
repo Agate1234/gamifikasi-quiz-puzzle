@@ -361,53 +361,6 @@ const ROLE_SKILL_CONFIGS = {
       },
     ],
   },
-  hunter: {
-    name: "Hunter",
-    icon: "🏹",
-    desc: "Pemburu tajam yang membaca jejak, menargetkan mangsa, memasang perangkap, menguasai medan, dan mendapat momentum dari buruan sempurna.",
-    skills: [
-      {
-        key: "prey_mark",
-        name: "Prey Mark",
-        type: "active",
-        label: "Aktif",
-        desc: "Hunter menandai 2 opsi target. Di antara opsi itu terdapat 1 jawaban benar dan 1 pengecoh. Jika memilih target yang benar, Hunter mendapat bonus XP 2/10 dari total XP quiz. Jika salah, damage menjadi 1.5x.",
-        support: ["pilgan"],
-        requirement:
-          "Bisa dipakai 1x per quiz, hanya untuk pilgan, minimal ada 3 opsi, sebelum submit, pilih salah satu opsi target, dan waktu masih berjalan.",
-      },
-      {
-        key: "trap_setting",
-        name: "Trap Setting",
-        type: "active",
-        label: "Aktif",
-        desc: "Hunter memasang perangkap sebelum menjawab. Jika jawaban salah, jawaban salah tadi dikunci dan kamu mendapat 1 kesempatan menjawab ulang pada soal yang sama.",
-        support: ["pilgan", "true_false"],
-        requirement:
-          "Bisa dipakai 1x per quiz, sebelum submit, sudah memilih jawaban, waktu masih berjalan, dan tidak bisa dipakai pada soal terakhir.",
-      },
-      {
-        key: "terrain_advantage",
-        name: "Terrain Advantage",
-        type: "active",
-        label: "Aktif",
-        desc: "Hunter menguasai medan quiz. Setelah skill dipakai, damage dari 2 jawaban salah berikutnya dikurangi 30%.",
-        support: ["pilgan", "true_false", "checkbox"],
-        requirement:
-          "Bisa dipakai 1x per quiz, sebelum submit, waktu masih berjalan, dan minimal tersisa 2 soal.",
-      },
-      {
-        key: "perfect_hunt",
-        name: "Perfect Hunt",
-        type: "passive",
-        label: "Pasif",
-        desc: "Hunter semakin tajam saat memburu target. Jika menjawab benar 3 kali berturut-turut, mendapat bonus XP 2/10 dari total XP quiz.",
-        support: ["pilgan", "true_false", "checkbox"],
-        requirement:
-          "Aktif otomatis 1x per quiz saat streak benar alami mencapai 3.",
-      },
-    ],
-  },
 };
 
 const ROLE_META = {
@@ -419,7 +372,6 @@ const ROLE_META = {
   prisoner: { short: "Comeback dan bertahan", color: "#a855f7" },
   warrior: { short: "Kuat dan stabil", color: "#22c55e" },
   reader: { short: "Membaca dan memahami", color: "#3b82f6" },
-  hunter: { short: "Akurasi dan target", color: "#eab308" },
 };
 
 const GAME_ROLES = Object.entries(ROLE_SKILL_CONFIGS).map(([key, value]) => ({
@@ -444,6 +396,15 @@ const GAME_ROLES = Object.entries(ROLE_SKILL_CONFIGS).map(([key, value]) => ({
       : skill.support,
   })),
 }));
+
+function isAvailableGameRole(role) {
+  if (!role) return false;
+  return GAME_ROLES.some((item) => item.key === role);
+}
+
+function normalizeAvailableGameRole(role) {
+  return isAvailableGameRole(role) ? role : null;
+}
 
 function getUserName(session) {
   return (
@@ -482,8 +443,10 @@ export default function LayoutNavbar({ session }) {
 
   const [form] = Form.useForm();
 
-  const savedGameRole =
+  const rawSavedGameRole =
     profile?.game_role || localStorage.getItem("game_role") || null;
+
+  const savedGameRole = normalizeAvailableGameRole(rawSavedGameRole);
 
   const selectedRoleData = useMemo(
     () => getRoleByKey(selectedGameRole || savedGameRole),
@@ -553,7 +516,9 @@ export default function LayoutNavbar({ session }) {
   useEffect(() => {
     if (!profileOpen || !profileTutorialOpen) return;
 
-    const lockedRole = profile?.game_role || localStorage.getItem("game_role");
+    const lockedRole = normalizeAvailableGameRole(
+      profile?.game_role || localStorage.getItem("game_role"),
+    );
 
     if (lockedRole) {
       setProfileTutorialStep(1);
@@ -607,14 +572,18 @@ export default function LayoutNavbar({ session }) {
       if (response?.status === 200 && response?.data?.success) {
         const user = response.data.data;
 
+        const availableRole = normalizeAvailableGameRole(user?.game_role);
+
         setProfile(user);
-        setSelectedGameRole(user?.game_role || null);
+        setSelectedGameRole(availableRole);
 
         localStorage.setItem("nama_user", user?.nama_user || "Mahasiswa");
         localStorage.setItem("email", user?.email || "");
 
-        if (user?.game_role) {
-          localStorage.setItem("game_role", user.game_role);
+        if (availableRole) {
+          localStorage.setItem("game_role", availableRole);
+        } else {
+          localStorage.removeItem("game_role");
         }
 
         form.setFieldsValue({
@@ -643,7 +612,9 @@ export default function LayoutNavbar({ session }) {
   };
 
   const closeProfileModal = () => {
-    const lockedRole = profile?.game_role || localStorage.getItem("game_role");
+    const lockedRole = normalizeAvailableGameRole(
+      profile?.game_role || localStorage.getItem("game_role"),
+    );
 
     if (openedFromRoadmapTutorial && !lockedRole) {
       showAppNotif({
@@ -660,7 +631,9 @@ export default function LayoutNavbar({ session }) {
     setProfileTutorialStep(0);
     setOpenedFromRoadmapTutorial(false);
     setSelectedGameRole(
-      profile?.game_role || localStorage.getItem("game_role"),
+      normalizeAvailableGameRole(
+        profile?.game_role || localStorage.getItem("game_role"),
+      ),
     );
     form.setFieldsValue({
       password: "",
@@ -697,11 +670,13 @@ export default function LayoutNavbar({ session }) {
         payload.password = values.password.trim();
       }
 
-      if (!profile?.game_role && selectedGameRole) {
+      const currentAvailableRole = normalizeAvailableGameRole(profile?.game_role);
+
+      if (!currentAvailableRole && selectedGameRole) {
         payload.game_role = selectedGameRole;
       }
 
-      if (!profile?.game_role && !selectedGameRole) {
+      if (!currentAvailableRole && !selectedGameRole) {
         showAppNotif({
           type: "error",
           title: "Role Belum Dipilih",
@@ -725,8 +700,14 @@ export default function LayoutNavbar({ session }) {
             localStorage.setItem("nama_user", updatedUser?.nama_user || "");
             localStorage.setItem("email", updatedUser?.email || "");
 
-            if (updatedUser?.game_role) {
-              localStorage.setItem("game_role", updatedUser.game_role);
+            const availableUpdatedRole = normalizeAvailableGameRole(
+              updatedUser?.game_role || selectedGameRole,
+            );
+
+            if (availableUpdatedRole) {
+              localStorage.setItem("game_role", availableUpdatedRole);
+            } else {
+              localStorage.removeItem("game_role");
             }
 
             showAppNotif({
@@ -734,8 +715,8 @@ export default function LayoutNavbar({ session }) {
               title: isRoleSetupRequired
                 ? "Role Berhasil Dipilih!"
                 : "Profil Berhasil Disimpan",
-              message: updatedUser?.game_role
-                ? `Role kamu: ${getRoleByKey(updatedUser.game_role)?.name || updatedUser.game_role}. Skill role sudah aktif dan bisa dipakai saat quiz.`
+              message: availableUpdatedRole
+                ? `Role kamu: ${getRoleByKey(availableUpdatedRole)?.name || availableUpdatedRole}. Skill role sudah aktif dan bisa dipakai saat quiz.`
                 : "Email atau password berhasil diperbarui.",
               onClose: () => {
                 setProfileOpen(false);
@@ -746,7 +727,7 @@ export default function LayoutNavbar({ session }) {
                 window.dispatchEvent(
                   new CustomEvent("game-role-selected", {
                     detail: {
-                      game_role: updatedUser?.game_role || selectedGameRole,
+                      game_role: availableUpdatedRole || selectedGameRole,
                     },
                   }),
                 );
