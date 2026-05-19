@@ -1,5 +1,44 @@
 import React, { useEffect, useMemo, useState } from "react";
 
+const formatSecondsToTime = (totalSeconds = 0) => {
+  const parsed = Number(totalSeconds);
+
+  if (!Number.isFinite(parsed)) {
+    return "-";
+  }
+
+  const safeSeconds = Math.max(0, Math.floor(parsed));
+  const mm = String(Math.floor(safeSeconds / 60)).padStart(2, "0");
+  const ss = String(safeSeconds % 60).padStart(2, "0");
+
+  return `${mm}:${ss}`;
+};
+
+const getResultTimeText = (result) => {
+  const directTimeText = result?.timeText;
+
+  if (
+    directTimeText !== null &&
+    directTimeText !== undefined &&
+    String(directTimeText).trim() !== "" &&
+    String(directTimeText).trim() !== "-"
+  ) {
+    return directTimeText;
+  }
+
+  const rawSisaWaktu =
+    result?.sisa_waktu_detik ??
+    result?.waktu_penyelesaian ??
+    result?.waktuPenyelesaian ??
+    null;
+
+  if (rawSisaWaktu !== null && rawSisaWaktu !== undefined) {
+    return formatSecondsToTime(rawSisaWaktu);
+  }
+
+  return "-";
+};
+
 export default function HasilQuiz({
   open,
   quizTitle = "Quiz",
@@ -14,7 +53,7 @@ export default function HasilQuiz({
   const score = result?.score100 ?? 0;
   const xp = result?.xpEarned ?? 0;
   const accuracy = result?.accuracy ?? 0;
-  const timeText = result?.timeText ?? "00:00";
+  const timeText = getResultTimeText(result);
   const totalQ = result?.totalQuestions ?? questions.length ?? 0;
   const review = result?.review || [];
   const [showParty, setShowParty] = useState(false);
@@ -83,7 +122,7 @@ export default function HasilQuiz({
           <div style={R.statsGrid}>
             <StatBox label="XP DIPEROLEH" value={`+${xp} XP`} icon="⚡" />
             <StatBox label="AKURASI" value={`${accuracy}%`} icon="🎯" />
-            <StatBox label="WAKTU" value={timeText} icon="⏱" />
+            <StatBox label="SISA WAKTU" value={timeText} icon="⏱" />
             <StatBox label="SOAL" value={`${totalQ} Butir`} icon="📄" />
           </div>
 
@@ -163,8 +202,8 @@ export default function HasilQuiz({
 
 function QuizPartyFromBottom() {
   const pieces = [
-    { left: 5, delay: 0.00, duration: 1.85, size: 8, rotate: 18, color: "#5bffd7" },
-    { left: 9, delay: 0.10, duration: 2.05, size: 7, rotate: -24, color: "#9b5cff" },
+    { left: 5, delay: 0.0, duration: 1.85, size: 8, rotate: 18, color: "#5bffd7" },
+    { left: 9, delay: 0.1, duration: 2.05, size: 7, rotate: -24, color: "#9b5cff" },
     { left: 14, delay: 0.18, duration: 1.95, size: 8, rotate: 36, color: "#ffd166" },
     { left: 19, delay: 0.05, duration: 2.15, size: 9, rotate: -42, color: "#ff6b9a" },
     { left: 24, delay: 0.22, duration: 1.9, size: 7, rotate: 28, color: "#6f7cff" },
@@ -173,7 +212,7 @@ function QuizPartyFromBottom() {
     { left: 39, delay: 0.26, duration: 2.18, size: 7, rotate: -35, color: "#ff6b9a" },
     { left: 44, delay: 0.15, duration: 1.92, size: 9, rotate: 21, color: "#9b5cff" },
     { left: 49, delay: 0.08, duration: 2.08, size: 8, rotate: -52, color: "#5bffd7" },
-    { left: 54, delay: 0.20, duration: 2.14, size: 8, rotate: 44, color: "#ffd166" },
+    { left: 54, delay: 0.2, duration: 2.14, size: 8, rotate: 44, color: "#ffd166" },
     { left: 59, delay: 0.11, duration: 1.95, size: 7, rotate: -14, color: "#6f7cff" },
     { left: 64, delay: 0.25, duration: 2.1, size: 9, rotate: 31, color: "#ff6b9a" },
     { left: 69, delay: 0.14, duration: 1.88, size: 8, rotate: -46, color: "#5bffd7" },
@@ -191,7 +230,7 @@ function QuizPartyFromBottom() {
     { left: 50, delay: 0.24, duration: 2.22, color: "#9b5cff" },
     { left: 64, delay: 0.14, duration: 2.08, color: "#5bffd7" },
     { left: 78, delay: 0.04, duration: 2.14, color: "#6f7cff" },
-    { left: 90, delay: 0.20, duration: 2.06, color: "#ff6b9a" },
+    { left: 90, delay: 0.2, duration: 2.06, color: "#ff6b9a" },
   ];
 
   return (
@@ -500,9 +539,21 @@ const R = {
     textAlign: "left",
   },
 
-  title: { fontSize: 28, fontWeight: 950 },
-  subtitle: { marginTop: 6, fontSize: 12, opacity: 0.75 },
-  linkLike: { color: "rgba(140,86,255,0.95)", fontWeight: 800 },
+  title: {
+    fontSize: 28,
+    fontWeight: 950,
+  },
+
+  subtitle: {
+    marginTop: 6,
+    fontSize: 12,
+    opacity: 0.75,
+  },
+
+  linkLike: {
+    color: "rgba(140,86,255,0.95)",
+    fontWeight: 800,
+  },
 
   smallLabel: {
     fontSize: 11,
@@ -526,7 +577,11 @@ const R = {
     lineHeight: 1,
   },
 
-  scoreSmall: { fontSize: 16, opacity: 0.7, paddingBottom: 10 },
+  scoreSmall: {
+    fontSize: 16,
+    opacity: 0.7,
+    paddingBottom: 10,
+  },
 
   statsGrid: {
     marginTop: 14,
@@ -543,9 +598,23 @@ const R = {
     textAlign: "center",
   },
 
-  statIcon: { fontSize: 18, opacity: 0.9 },
-  statLabel: { marginTop: 6, fontSize: 10, opacity: 0.7, letterSpacing: 0.6 },
-  statValue: { marginTop: 6, fontSize: 13, fontWeight: 900 },
+  statIcon: {
+    fontSize: 18,
+    opacity: 0.9,
+  },
+
+  statLabel: {
+    marginTop: 6,
+    fontSize: 10,
+    opacity: 0.7,
+    letterSpacing: 0.6,
+  },
+
+  statValue: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: 900,
+  },
 
   actions: {
     marginTop: 14,
@@ -775,7 +844,11 @@ const R = {
     color: "rgba(245,247,255,0.94)",
   },
 
-  quote: { marginTop: 18, fontSize: 11, opacity: 0.4 },
+  quote: {
+    marginTop: 18,
+    fontSize: 11,
+    opacity: 0.4,
+  },
 
   emptyText: {
     fontSize: 14,
