@@ -1222,22 +1222,32 @@ const tourStyles = {
 
 const styles = {
   page: {
-    minHeight: "100vh",
-    background:
-      "radial-gradient(1200px 700px at 60% 30%, #0a2a2a 0%, #070a14 55%, #050611 100%)",
-    color: "#d7defa",
-    fontFamily:
-      "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial",
-  },
+  minHeight: "100vh",
+  background:
+    "radial-gradient(1200px 700px at 60% 30%, #0a2a2a 0%, #070a14 55%, #050611 100%)",
+  color: "#d7defa",
+  fontFamily:
+    "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial",
+},
 
-  main: {
-    padding: 18,
-    maxWidth: 1200,
-    margin: "0 auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: 18,
-  },
+main: {
+  padding: 18,
+  maxWidth: 1200,
+  margin: "0 auto",
+  display: "flex",
+  flexDirection: "column",
+  gap: 18,
+  paddingBottom: 90,
+},
+
+timelineWrap: {
+  position: "relative",
+  borderRadius: 18,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "rgba(255,255,255,0.02)",
+  overflow: "visible",
+  padding: 14,
+},
 
   loadingBox: {
     padding: 18,
@@ -1247,15 +1257,6 @@ const styles = {
     color: "#d7defa",
     fontSize: 14,
     fontWeight: 700,
-  },
-
-  timelineWrap: {
-    position: "relative",
-    borderRadius: 18,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.02)",
-    overflow: "hidden",
-    padding: 14,
   },
 
   timelineLine: {
