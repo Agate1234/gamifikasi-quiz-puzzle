@@ -21,10 +21,13 @@ const setEncryptedLocal = (key, value) => {
   localStorage.setItem(key, encoded);
 };
 
-const clearPlainUserStorage = () => {
-  ["email", "id_user", "nama_user", "role", "game_role"].forEach((key) =>
-    localStorage.removeItem(key),
-  );
+const clearOldEncryptedUserStorage = () => {
+  [
+    "ct_email",
+    "ct_id_user",
+    "ct_nama_user",
+    "ct_game_role",
+  ].forEach((key) => localStorage.removeItem(key));
 };
 
 const clearQuizRuntimeStorage = () => {
@@ -54,19 +57,24 @@ const handleSignIn = async (values) => {
     const token = response?.data?.token;
     const user = response?.data?.data || {};
 
-    clearPlainUserStorage();
+    clearOldEncryptedUserStorage();
     clearQuizRuntimeStorage();
 
     localStorage.setItem("token", token || "");
 
+    // Field ini sengaja plaintext lagi supaya file lama seperti Navbar/Profile
+    // tetap bisa membaca user aktif tanpa error "User Tidak Ditemukan".
+    localStorage.setItem("id_user", user.id_user || "");
+    localStorage.setItem("nama_user", user.nama_user || "");
+    localStorage.setItem("email", user.email || values?.email || "");
+    localStorage.setItem("game_role", user.game_role || "");
+
+    // Hanya id_role yang disamarkan/encoded.
+    localStorage.removeItem("role");
+    setEncryptedLocal("ct_role", user.id_role || "");
+
     response.data.auth = true;
     localStorage.setItem("session", encryptData(response?.data));
-
-    setEncryptedLocal("ct_email", user.email || values?.email || "");
-    setEncryptedLocal("ct_id_user", user.id_user || "");
-    setEncryptedLocal("ct_nama_user", user.nama_user || "");
-    setEncryptedLocal("ct_role", user.id_role || "");
-    setEncryptedLocal("ct_game_role", user.game_role || "");
 
     NotifToast({
       type: "success",

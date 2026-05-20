@@ -18,122 +18,6 @@ import { getUserByIdApi, updateUserApi } from "../components/api/user";
 
 const { Header } = Layout;
 
-const decodeLocalValue = (raw) => {
-  try {
-    if (!raw) return null;
-    return JSON.parse(decodeURIComponent(escape(atob(raw))));
-  } catch {
-    try {
-      return JSON.parse(atob(raw));
-    } catch {
-      return null;
-    }
-  }
-};
-
-const encodeLocalValue = (value) => {
-  try {
-    return btoa(unescape(encodeURIComponent(JSON.stringify(value))));
-  } catch {
-    return "";
-  }
-};
-
-const getEncryptedLocal = (key, fallback = "") => {
-  const decoded = decodeLocalValue(localStorage.getItem(key));
-  return decoded ?? fallback;
-};
-
-const setEncryptedLocal = (key, value) => {
-  const encoded = encodeLocalValue(value);
-
-  if (!encoded) {
-    localStorage.removeItem(key);
-    return;
-  }
-
-  localStorage.setItem(key, encoded);
-};
-
-const removeEncryptedLocal = (key) => {
-  localStorage.removeItem(key);
-};
-
-const getSessionUser = (session) => {
-  if (session?.data) return session.data;
-  if (session?.user) return session.user;
-
-  const rawSession = decodeLocalValue(localStorage.getItem("session"));
-
-  return rawSession?.data || rawSession?.user || {};
-};
-
-const getStoredIdUser = (session) => {
-  return (
-    getEncryptedLocal("ct_id_user", "") ||
-    localStorage.getItem("id_user") ||
-    getSessionUser(session)?.id_user ||
-    ""
-  );
-};
-
-const getStoredNamaUser = (session) => {
-  return (
-    getEncryptedLocal("ct_nama_user", "") ||
-    localStorage.getItem("nama_user") ||
-    getSessionUser(session)?.nama_user ||
-    getSessionUser(session)?.nama ||
-    "Mahasiswa"
-  );
-};
-
-const getStoredEmail = (session) => {
-  return (
-    getEncryptedLocal("ct_email", "") ||
-    localStorage.getItem("email") ||
-    getSessionUser(session)?.email ||
-    ""
-  );
-};
-
-const getStoredGameRole = (session) => {
-  return (
-    getEncryptedLocal("ct_game_role", "") ||
-    localStorage.getItem("game_role") ||
-    getSessionUser(session)?.game_role ||
-    null
-  );
-};
-
-const setStoredUserProfile = (user = {}) => {
-  setEncryptedLocal("ct_id_user", user?.id_user || "");
-  setEncryptedLocal("ct_nama_user", user?.nama_user || user?.nama || "Mahasiswa");
-  setEncryptedLocal("ct_email", user?.email || "");
-  setEncryptedLocal("ct_role", user?.id_role || user?.role_id || user?.role || "");
-
-  const availableRole = normalizeAvailableGameRole(user?.game_role);
-
-  if (availableRole) {
-    setEncryptedLocal("ct_game_role", availableRole);
-  } else {
-    removeEncryptedLocal("ct_game_role");
-  }
-};
-
-const clearPlainUserStorage = () => {
-  ["id_user", "nama_user", "role", "game_role", "email"].forEach((key) => {
-    localStorage.removeItem(key);
-  });
-};
-
-const clearEncryptedUserStorage = () => {
-  ["ct_id_user", "ct_nama_user", "ct_role", "ct_game_role", "ct_email"].forEach(
-    (key) => {
-      localStorage.removeItem(key);
-    },
-  );
-};
-
 const defaultLevelInfo = {
   level: 1,
   total_exp: 0,
@@ -523,9 +407,15 @@ function normalizeAvailableGameRole(role) {
 }
 
 function getUserName(session) {
-  return getStoredNamaUser(session);
+  return (
+    localStorage.getItem("nama_user") ||
+    session?.user?.nama_user ||
+    session?.user?.nama ||
+    session?.nama_user ||
+    session?.nama ||
+    "Mahasiswa"
+  );
 }
-
 
 function getRoleByKey(key) {
   return GAME_ROLES.find((role) => role.key === key) || null;
@@ -553,7 +443,8 @@ export default function LayoutNavbar({ session }) {
 
   const [form] = Form.useForm();
 
-  const rawSavedGameRole = profile?.game_role || getStoredGameRole(session);
+  const rawSavedGameRole =
+    profile?.game_role || localStorage.getItem("game_role") || null;
 
   const savedGameRole = normalizeAvailableGameRole(rawSavedGameRole);
 
@@ -583,7 +474,7 @@ export default function LayoutNavbar({ session }) {
       try {
         setLoadingLevel(true);
 
-        const idUser = getStoredIdUser(session);
+        const idUser = localStorage.getItem("id_user");
 
         if (!idUser) {
           setLevelInfo(defaultLevelInfo);
@@ -626,7 +517,7 @@ export default function LayoutNavbar({ session }) {
     if (!profileOpen || !profileTutorialOpen) return;
 
     const lockedRole = normalizeAvailableGameRole(
-      profile?.game_role || getStoredGameRole(session),
+      profile?.game_role || localStorage.getItem("game_role"),
     );
 
     if (lockedRole) {
@@ -670,7 +561,7 @@ export default function LayoutNavbar({ session }) {
 
   const fetchProfile = async () => {
     try {
-      const idUser = getStoredIdUser(session);
+      const idUser = localStorage.getItem("id_user");
 
       if (!idUser) return;
 
@@ -686,8 +577,14 @@ export default function LayoutNavbar({ session }) {
         setProfile(user);
         setSelectedGameRole(availableRole);
 
-        setStoredUserProfile(user);
-        clearPlainUserStorage();
+        localStorage.setItem("nama_user", user?.nama_user || "Mahasiswa");
+        localStorage.setItem("email", user?.email || "");
+
+        if (availableRole) {
+          localStorage.setItem("game_role", availableRole);
+        } else {
+          localStorage.removeItem("game_role");
+        }
 
         form.setFieldsValue({
           nama_user: user?.nama_user || "",
@@ -716,7 +613,7 @@ export default function LayoutNavbar({ session }) {
 
   const closeProfileModal = () => {
     const lockedRole = normalizeAvailableGameRole(
-      profile?.game_role || getStoredGameRole(session),
+      profile?.game_role || localStorage.getItem("game_role"),
     );
 
     if (openedFromRoadmapTutorial && !lockedRole) {
@@ -735,7 +632,7 @@ export default function LayoutNavbar({ session }) {
     setOpenedFromRoadmapTutorial(false);
     setSelectedGameRole(
       normalizeAvailableGameRole(
-        profile?.game_role || getStoredGameRole(session),
+        profile?.game_role || localStorage.getItem("game_role"),
       ),
     );
     form.setFieldsValue({
@@ -745,7 +642,7 @@ export default function LayoutNavbar({ session }) {
 
   const saveProfile = async () => {
     try {
-      const idUser = getStoredIdUser(session);
+      const idUser = localStorage.getItem("id_user");
 
       if (!idUser) {
         showAppNotif({
@@ -800,15 +697,18 @@ export default function LayoutNavbar({ session }) {
 
             setProfile(updatedUser);
 
+            localStorage.setItem("nama_user", updatedUser?.nama_user || "");
+            localStorage.setItem("email", updatedUser?.email || "");
+
             const availableUpdatedRole = normalizeAvailableGameRole(
               updatedUser?.game_role || selectedGameRole,
             );
 
-            setStoredUserProfile({
-              ...updatedUser,
-              game_role: availableUpdatedRole,
-            });
-            clearPlainUserStorage();
+            if (availableUpdatedRole) {
+              localStorage.setItem("game_role", availableUpdatedRole);
+            } else {
+              localStorage.removeItem("game_role");
+            }
 
             showAppNotif({
               type: "success",
@@ -867,8 +767,18 @@ export default function LayoutNavbar({ session }) {
   const handleLogout = () => {
     localStorage.removeItem("session");
     localStorage.removeItem("token");
-    clearPlainUserStorage();
-    clearEncryptedUserStorage();
+    localStorage.removeItem("id_user");
+    localStorage.removeItem("nama_user");
+    localStorage.removeItem("role");
+    localStorage.removeItem("game_role");
+    localStorage.removeItem("email");
+
+    // Bersihkan key encoded lama juga. Saat ini yang dipakai hanya ct_role.
+    localStorage.removeItem("ct_role");
+    localStorage.removeItem("ct_id_user");
+    localStorage.removeItem("ct_nama_user");
+    localStorage.removeItem("ct_email");
+    localStorage.removeItem("ct_game_role");
 
     Object.keys(localStorage)
       .filter(
