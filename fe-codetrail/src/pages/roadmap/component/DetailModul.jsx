@@ -16,6 +16,34 @@ import { getMapQuizByIdApi } from "../../../components/api/quizmap";
 import { getNextSoalMahasiswaApi } from "../../../components/api/soal";
 
 
+const decodeLocalValue = (raw) => {
+  try {
+    if (!raw) return null;
+    return JSON.parse(decodeURIComponent(escape(atob(raw))));
+  } catch {
+    try {
+      return JSON.parse(atob(raw));
+    } catch {
+      return null;
+    }
+  }
+};
+
+const getEncryptedLocal = (key, fallback = "") => {
+  const decoded = decodeLocalValue(localStorage.getItem(key));
+  return decoded ?? fallback;
+};
+
+const getSessionUser = () => {
+  const session = decodeLocalValue(localStorage.getItem("session"));
+  return session?.data || {};
+};
+
+const getSessionValue = (key, fallback = "") => {
+  const user = getSessionUser();
+  return user?.[key] ?? fallback;
+};
+
 function normalizeStatus(value) {
   return String(value || "").toLowerCase().trim();
 }
@@ -447,7 +475,7 @@ export default function ModulePage({
       setMateriLoading(true);
 
       const params = new URLSearchParams();
-      const idUser = localStorage.getItem("id_user") || "";
+      const idUser = getEncryptedLocal("ct_id_user", getSessionValue("id_user", localStorage.getItem("id_user") || ""));
 
       if (idUser) {
         params.append("id_user", idUser);
@@ -500,7 +528,7 @@ export default function ModulePage({
       setQuizLoading(true);
 
       const params = new URLSearchParams();
-      const idUser = localStorage.getItem("id_user") || "";
+      const idUser = getEncryptedLocal("ct_id_user", getSessionValue("id_user", localStorage.getItem("id_user") || ""));
       if (idUser) params.append("id_user", idUser);
 
       const response = await getMapQuizByIdApi(item.id_quiz, params);
@@ -553,7 +581,7 @@ export default function ModulePage({
       setPuzzleLoading(true);
 
       const params = new URLSearchParams();
-      const idUser = localStorage.getItem("id_user") || "";
+      const idUser = getEncryptedLocal("ct_id_user", getSessionValue("id_user", localStorage.getItem("id_user") || ""));
 
       if (idUser) {
         params.append("id_user", idUser);

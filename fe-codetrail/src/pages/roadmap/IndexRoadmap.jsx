@@ -6,6 +6,34 @@ import { getMapMateriApi } from "../../components/api/materimap";
 import { getMapQuizApi } from "../../components/api/quizmap";
 import { getMapPuzzleApi } from "../../components/api/puzzlemap";
 
+const decodeLocalValue = (raw) => {
+  try {
+    if (!raw) return null;
+    return JSON.parse(decodeURIComponent(escape(atob(raw))));
+  } catch {
+    try {
+      return JSON.parse(atob(raw));
+    } catch {
+      return null;
+    }
+  }
+};
+
+const getEncryptedLocal = (key, fallback = "") => {
+  const decoded = decodeLocalValue(localStorage.getItem(key));
+  return decoded ?? fallback;
+};
+
+const getSessionUser = () => {
+  const session = decodeLocalValue(localStorage.getItem("session"));
+  return session?.data || {};
+};
+
+const getSessionValue = (key, fallback = "") => {
+  const user = getSessionUser();
+  return user?.[key] ?? fallback;
+};
+
 function normalizeModules(
   apiData = [],
   materiMap = [],
@@ -226,7 +254,7 @@ export default function RoadmapMahasiswa() {
         setLoading(true);
 
         const params = new URLSearchParams();
-        const idUser = localStorage.getItem("id_user") || "";
+        const idUser = getEncryptedLocal("ct_id_user", getSessionValue("id_user", localStorage.getItem("id_user") || ""));
 
         if (idUser) {
           params.append("id_user", idUser);
@@ -285,10 +313,10 @@ export default function RoadmapMahasiswa() {
   useEffect(() => {
     if (loading || modules.length < 1) return;
 
-    const savedRole = localStorage.getItem("game_role");
+    const savedRole = getEncryptedLocal("ct_game_role", getSessionValue("game_role", localStorage.getItem("game_role")));
     if (savedRole) return;
 
-    const idUser = localStorage.getItem("id_user") || "guest";
+    const idUser = getEncryptedLocal("ct_id_user", getSessionValue("id_user", localStorage.getItem("id_user") || "guest"));
     const setupKey = `roadmap_role_setup_opened_${idUser}`;
 
     const unlockedModules = modules.filter((mod) => mod.status !== "locked");

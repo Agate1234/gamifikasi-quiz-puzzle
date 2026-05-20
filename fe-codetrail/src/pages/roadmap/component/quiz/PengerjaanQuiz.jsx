@@ -11,6 +11,53 @@ import {
 } from "../../../../components/api/soal";
 import { getUserByIdApi } from "../../../../components/api/user";
 
+const decodeLocalValue = (raw) => {
+  try {
+    if (!raw) return null;
+    return JSON.parse(decodeURIComponent(escape(atob(raw))));
+  } catch {
+    try {
+      return JSON.parse(atob(raw));
+    } catch {
+      return null;
+    }
+  }
+};
+
+const encodeLocalValue = (value) => {
+  try {
+    return btoa(unescape(encodeURIComponent(JSON.stringify(value))));
+  } catch {
+    return "";
+  }
+};
+
+const getEncryptedLocal = (key, fallback = "") => {
+  const decoded = decodeLocalValue(localStorage.getItem(key));
+  return decoded ?? fallback;
+};
+
+const setEncryptedLocal = (key, value) => {
+  const encoded = encodeLocalValue(value);
+
+  if (!encoded) {
+    localStorage.removeItem(key);
+    return;
+  }
+
+  localStorage.setItem(key, encoded);
+};
+
+const getSessionUser = () => {
+  const session = decodeLocalValue(localStorage.getItem("session"));
+  return session?.data || {};
+};
+
+const getSessionValue = (key, fallback = "") => {
+  const user = getSessionUser();
+  return user?.[key] ?? fallback;
+};
+
 const ROLE_CONFIGS = {
   assassin: {
     name: "Assassin",
@@ -434,11 +481,21 @@ function normalizeGameRole(role) {
 }
 
 function getRoleFromStorage() {
-  return normalizeGameRole(localStorage.getItem("game_role"));
+  return normalizeGameRole(
+    getEncryptedLocal(
+      "ct_game_role",
+      getSessionValue("game_role", localStorage.getItem("game_role")),
+    ),
+  );
 }
 
 function getDisplayName() {
-  return localStorage.getItem("nama_user") || "Player";
+  return (
+    getEncryptedLocal(
+      "ct_nama_user",
+      getSessionValue("nama_user", localStorage.getItem("nama_user")),
+    ) || "Player"
+  );
 }
 
 function getInitial(name) {
@@ -721,7 +778,7 @@ export default function QuizFullscreen({
   onTutorQuizFinished,
 }) {
   const INITIAL_HEALTH = 100;
-  const QUIZ_TOTAL_SECONDS = 20;
+  const QUIZ_TOTAL_SECONDS = 15 * 60;
 
   const [currentSoal, setCurrentSoal] = useState(null);
   const [selected, setSelected] = useState([]);
@@ -979,7 +1036,7 @@ export default function QuizFullscreen({
         return;
       }
 
-      const idUser = localStorage.getItem("id_user");
+      const idUser = getEncryptedLocal("ct_id_user", getSessionValue("id_user", localStorage.getItem("id_user")));
 
       if (!idUser) {
         setGameRoleKey("");
@@ -998,7 +1055,8 @@ export default function QuizFullscreen({
           const roleFromDb = normalizeGameRole(user?.game_role);
 
           if (roleFromDb) {
-            localStorage.setItem("game_role", roleFromDb);
+            setEncryptedLocal("ct_game_role", roleFromDb);
+            localStorage.removeItem("game_role");
             setGameRoleKey(roleFromDb);
             return;
           }
@@ -1021,7 +1079,8 @@ export default function QuizFullscreen({
       const role = roleFromEvent || getRoleFromStorage();
 
       if (role) {
-        localStorage.setItem("game_role", role);
+        setEncryptedLocal("ct_game_role", role);
+        localStorage.removeItem("game_role");
         setGameRoleKey(role);
       }
     };
