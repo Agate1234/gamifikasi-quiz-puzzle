@@ -456,6 +456,132 @@ const getQuizReview = async (client, id_user, id_quiz) => {
   }));
 };
 
+const finalizeQuizByTimeout = async (
+  client,
+  id_user,
+  id_quiz,
+  sisa_waktu_detik = 0,
+) => {
+  const stats = await getQuizStats(client, id_user, id_quiz);
+
+  const totalTarget = Math.max(
+    1,
+    Number(stats.totalTarget || MAX_SOAL_QUIZ),
+  );
+  const totalAnswered = Math.min(
+    totalTarget,
+    Math.max(0, Number(stats.totalAnswered || 0)),
+  );
+  const totalCorrect = Math.min(
+    totalTarget,
+    Math.max(0, Number(stats.totalCorrect || 0)),
+  );
+  const unansweredCount = Math.max(0, totalTarget - totalAnswered);
+  const unansweredPenalty = Math.round(
+    (unansweredCount / totalTarget) * MAX_HEALTH_SCORE,
+  );
+
+  const currentHealth = Math.max(
+    0,
+    Math.min(MAX_HEALTH_SCORE, Number(stats.score || 0)),
+  );
+  const finalScore = Math.max(
+    0,
+    Math.min(MAX_HEALTH_SCORE, currentHealth - unansweredPenalty),
+  );
+
+  const totalWrongIncludingTimeout = Math.max(
+    0,
+    Number(stats.totalWrong || 0) + unansweredCount,
+  );
+
+  const rewardStats = await getQuizRewardStats(
+    client,
+    id_quiz,
+    totalWrongIncludingTimeout,
+    stats.totalExpPenalty,
+    stats.deductionUsed,
+  );
+
+  const progressBeforeResult = await client.query(
+    `
+    SELECT status
+    FROM progress_quiz
+    WHERE id_user = $1
+      AND id_quiz = $2
+    LIMIT 1
+    `,
+    [id_user, id_quiz],
+  );
+
+  const statusBefore = progressBeforeResult.rows[0]?.status || null;
+  const normalizedSisaWaktu = normalizeSisaWaktuDetik(sisa_waktu_detik) ?? 0;
+    await client.query(
+    `
+    UPDATE progress_quiz
+    SET
+      status = 'done',
+      score = $1,
+      waktu_penyelesaian = COALESCE(waktu_penyelesaian, $2),
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id_user = $3
+      AND id_quiz = $4
+    `,
+    [finalScore, normalizedSisaWaktu, id_user, id_quiz],
+  );
+
+  let unlockInfo = {
+    nextQuizId: null,
+    nextQuizUnlocked: false,
+  };
+
+  if (statusBefore !== "done") {
+    if (rewardStats.expEarned > 0) {
+      await addUserExp(client, id_user, rewardStats.expEarned);
+      await evaluateAndAwardAchievements(client, id_user);
+    }
+
+    unlockInfo = await unlockNextQuizForUser(client, id_user, id_quiz);
+  }
+
+  const progressResult = await client.query(
+    `
+    SELECT waktu_penyelesaian
+    FROM progress_quiz
+    WHERE id_user = $1
+      AND id_quiz = $2
+    LIMIT 1
+    `,
+    [id_user, id_quiz],
+  );
+
+  const review = await getQuizReview(client, id_user, id_quiz);
+
+  return {
+    finished: true,
+    timeout: true,
+    totalAvailable: stats.totalAvailable,
+    totalTarget,
+    totalAnswered,
+    totalCorrect,
+    totalWrong: totalWrongIncludingTimeout,
+    unansweredCount,
+    unansweredPenalty,
+    scoreBeforeTimeout: currentHealth,
+    score: finalScore,
+    expQuiz: rewardStats.expQuiz,
+    expPerWrong: rewardStats.expPerWrong,
+    expEarned: rewardStats.expEarned,
+    minExp: rewardStats.minExp,
+    totalExpPenalty: rewardStats.totalExpPenalty,
+    deductionUsed: rewardStats.deductionUsed,
+    nextQuizId: unlockInfo.nextQuizId,
+    nextQuizUnlocked: unlockInfo.nextQuizUnlocked,
+    waktu_penyelesaian: progressResult.rows[0]?.waktu_penyelesaian || null,
+    review,
+  };
+};
+
 const finalizeQuizIfNeeded = async (
   client,
   id_user,
@@ -766,6 +892,12 @@ const submitJawabanMahasiswa = async (req, res) => {
     } = req.body;
 
     const activeEffects = getActiveEffects(skill_data);
+
+    const isTimeUp =
+      activeEffects.includes("time_up") ||
+      skill_data?.time_up === true ||
+      skill_data?.timeout === true;
+
     const gameRole = String(skill_data?.game_role || "").toLowerCase();
 
     const isMightyBlow = activeEffects.includes("mighty_blow");
@@ -827,6 +959,113 @@ const submitJawabanMahasiswa = async (req, res) => {
     }
 
     const idUser = req.user.id_user;
+        if (isTimeUp) {
+      await client.query("BEGIN");
+
+      const progressResult = await client.query(
+        `
+        SELECT *
+        FROM progress_quiz
+        WHERE id_user = $1
+          AND id_quiz = $2
+        LIMIT 1
+        `,
+        [idUser, id_quiz],
+      );
+
+      if (progressResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          success: false,
+          message: "Progress quiz tidak ditemukan",
+        });
+      }
+
+      const progress = progressResult.rows[0];
+
+      if (progress.is_unlock !== true || progress.status === "locked") {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          success: false,
+          message: "Quiz masih terkunci",
+        });
+      }
+
+      if (progress.status === "done") {
+        const doneStats = await getQuizStats(client, idUser, id_quiz);
+        const review = await getQuizReview(client, idUser, id_quiz);
+
+        await client.query("COMMIT");
+
+        return res.status(200).json({
+          success: true,
+          message: "Quiz sudah selesai",
+          data: {
+            finished: true,
+            timeout: true,
+            score: progress.score || 0,
+            exp_earned: doneStats.expEarned || 0,
+            health_remaining: progress.score || 0,
+            total_soal: doneStats.totalTarget || 0,
+            total_benar: doneStats.totalCorrect || 0,
+            unanswered_count: 0,
+            timeout_penalty: 0,
+            next_quiz_id: null,
+            next_quiz_unlocked: false,
+            waktu_penyelesaian: progress.waktu_penyelesaian || null,
+            review,
+            progress: {
+              total_soal: doneStats.totalTarget,
+              total_dijawab: doneStats.totalAnswered,
+              total_benar: doneStats.totalCorrect,
+              nomor_soal: doneStats.totalTarget,
+            },
+          },
+        });
+      }
+
+      const summary = await finalizeQuizByTimeout(
+        client,
+        idUser,
+        id_quiz,
+        sisa_waktu_detik,
+      );
+
+      await client.query("COMMIT");
+
+      return res.status(200).json({
+        success: true,
+        message: `Waktu habis. ${summary.unansweredCount} soal belum dijawab dihitung salah.`,
+        data: {
+          finished: true,
+          timeout: true,
+          is_right: false,
+          retry_same_question: false,
+          score: summary.score,
+          score_before_timeout: summary.scoreBeforeTimeout,
+          exp_earned: summary.expEarned,
+          exp_quiz: summary.expQuiz,
+          exp_per_wrong: summary.expPerWrong,
+          min_exp: summary.minExp,
+          health_remaining: summary.score,
+          unanswered_count: summary.unansweredCount,
+          timeout_penalty: summary.unansweredPenalty,
+          total_soal: summary.totalTarget,
+          total_benar: summary.totalCorrect,
+          total_dijawab: summary.totalAnswered,
+          next_quiz_id: summary.nextQuizId,
+          next_quiz_unlocked: summary.nextQuizUnlocked,
+          waktu_penyelesaian: summary.waktu_penyelesaian,
+          review: summary.review || [],
+          progress: {
+            total_soal: summary.totalTarget,
+            total_dijawab: summary.totalAnswered,
+            total_benar: summary.totalCorrect,
+            nomor_soal: summary.totalTarget,
+          },
+        },
+      });
+    }
 
     if (!id_soal) {
       return res.status(400).json({
@@ -1142,8 +1381,7 @@ const submitJawabanMahasiswa = async (req, res) => {
           message: "Ada jawaban yang tidak valid untuk soal ini",
         });
       }
-
-      if (
+            if (
         (soal.tipe_soal === "pilgan" || soal.tipe_soal === "true_false") &&
         submittedIds.length !== 1
       ) {
@@ -1527,8 +1765,7 @@ const submitJawabanMahasiswa = async (req, res) => {
         ? `Suppressed Desire aktif. Bonus XP +${suppressedDesireExpBonus}.`
         : "Suppressed Desire gagal. Jawaban salah, bonus XP tidak didapat.";
     }
-
-    if (learningAdaptationExpBonus > 0) {
+        if (learningAdaptationExpBonus > 0) {
       skillEffectUsed = skillEffectUsed || "learning_adaptation";
       skillMessage = skillMessage
         ? `${skillMessage} Learning Adaptation aktif. Bonus XP +${learningAdaptationExpBonus}.`
