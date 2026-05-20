@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import ModulePage from "./component/DetailModul";
+import { readActiveQuizSession } from "./component/quiz/PengerjaanQuiz";
 import { getMapModulApi } from "../../components/api/roadmap";
 import { getMapMateriApi } from "../../components/api/materimap";
 import { getMapQuizApi } from "../../components/api/quizmap";
@@ -248,7 +249,23 @@ export default function RoadmapMahasiswa() {
           );
 
           setModules(normalized);
-          setSelectedId(normalized[0]?.id ?? null);
+
+          const activeQuizSession = readActiveQuizSession();
+          const activeQuizModule = activeQuizSession?.quizId
+            ? normalized.find((mod) => {
+                return (mod.kuis || []).some((quiz) => {
+                  return String(quiz.id_quiz) === String(activeQuizSession.quizId);
+                });
+              })
+            : null;
+
+          if (activeQuizModule && activeQuizModule.status !== "locked") {
+            setSelectedId(activeQuizModule.id);
+            setModalModule(buildModulePageData(activeQuizModule, normalized));
+            setModalOpen(true);
+          } else {
+            setSelectedId(normalized[0]?.id ?? null);
+          }
         } else {
           setModules([]);
           setSelectedId(null);
@@ -286,7 +303,7 @@ export default function RoadmapMahasiswa() {
     window.dispatchEvent(new Event("open-profile-modal"));
   }, [loading, modules]);
 
-  const buildModulePageData = (mod) => {
+  const buildModulePageData = (mod, sourceModules = modules) => {
     const materi = (mod.materi || []).map((item, i) => ({
       ...item,
       highlight: i === 0,
@@ -302,8 +319,8 @@ export default function RoadmapMahasiswa() {
       highlight: false,
     }));
 
-    const allKuis = modules.flatMap((item) => item.kuis || []);
-    const allPuzzle = modules.flatMap((item) => item.puzzle || []);
+    const allKuis = sourceModules.flatMap((item) => item.kuis || []);
+    const allPuzzle = sourceModules.flatMap((item) => item.puzzle || []);
 
     const activities = buildActivitiesFromModuleItems(materi, kuis, puzzle);
     const totalActivities = activities.length;

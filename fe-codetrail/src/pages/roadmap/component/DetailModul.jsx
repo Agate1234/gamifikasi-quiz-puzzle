@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import MateriFullscreen from "./materi/DetailMateri";
-import QuizFullscreen from "./quiz/PengerjaanQuiz";
+import QuizFullscreen, { readActiveQuizSession } from "./quiz/PengerjaanQuiz";
 import PuzzleFullscreen from "./puzzle/PengerjaanPuzzle";
 import HasilPuzzle from "./puzzle/HasilPuzzle";
 import DetailPuzzleModal from "./puzzle/DetailPuzzle";
@@ -77,7 +77,6 @@ function shouldShowPuzzleTutorByDb(currentPuzzle, allPuzzle = []) {
 
   return !previousDoneSameType;
 }
-
 
 function NodePathSection({ list, tab, onPrimaryAction }) {
   const currentIndex = (list || []).findIndex((item) => {
@@ -319,6 +318,39 @@ export default function ModulePage({
   useEffect(() => {
     setLocalModule(module);
   }, [module]);
+
+  useEffect(() => {
+    if (!open || !localModule) return;
+
+    const activeQuizSession = readActiveQuizSession();
+    if (!activeQuizSession?.quizId) return;
+
+    const quizInModule = (localModule.kuis || []).find((quiz) => {
+      return String(quiz.id_quiz) === String(activeQuizSession.quizId);
+    });
+
+    if (!quizInModule) return;
+
+    const quizIsDone =
+      quizInModule.raw_status === "done" ||
+      quizInModule.raw_status === "selesai" ||
+      quizInModule.status === "done" ||
+      quizInModule.status === "selesai" ||
+      quizInModule.done === true;
+
+    if (quizIsDone) return;
+
+    setQuizDetailOpen(false);
+    setShowQuizResult(false);
+    setQuizResultData(null);
+    setSelectedQuiz(quizInModule);
+    setQuizTitle(activeQuizSession.quizTitle || quizInModule.title || "Kuis");
+    setActiveQuizId(quizInModule.id_quiz);
+    setQuizXp(Number(activeQuizSession.quizXp ?? quizInModule.xp ?? 0));
+    setQuizWorkTutorActive(false);
+    setQuizOpen(true);
+    setTab("kuis");
+  }, [open, localModule]);
 
   useEffect(() => {
     if (!open) return;
@@ -584,82 +616,87 @@ export default function ModulePage({
   };
 
   const handleConfirmStartQuiz = async () => {
-  if (!selectedQuiz) return;
+    if (!selectedQuiz) return;
 
-  const isDone =
-    selectedQuiz.raw_status === "done" || selectedQuiz.status === "done";
+    const isDone =
+      selectedQuiz.raw_status === "done" ||
+      selectedQuiz.raw_status === "selesai" ||
+      selectedQuiz.status === "done" ||
+      selectedQuiz.status === "selesai" ||
+      selectedQuiz.done === true;
 
-  setQuizDetailOpen(false);
+    setQuizDetailOpen(false);
 
-  if (isDone) {
-    try {
-      const response = await getNextSoalMahasiswaApi(selectedQuiz.id_quiz);
+    if (isDone) {
+      try {
+        const response = await getNextSoalMahasiswaApi(selectedQuiz.id_quiz);
 
-      const payload = response?.data?.data || {};
+        const payload = response?.data?.data || {};
 
-      const totalSoal =
-        payload.total_soal ||
-        payload.progress?.total_soal ||
-        selectedQuiz.totalQuestion ||
-        0;
+        const totalSoal =
+          payload.total_soal ||
+          payload.progress?.total_soal ||
+          selectedQuiz.totalQuestion ||
+          0;
 
-      const totalBenar =
-        payload.total_benar ||
-        payload.progress?.total_benar ||
-        0;
+        const totalBenar =
+          payload.total_benar ||
+          payload.progress?.total_benar ||
+          0;
 
-      const accuracy =
-        totalSoal > 0
-          ? Math.round((Number(totalBenar) / Number(totalSoal)) * 100)
-          : 0;
+        const accuracy =
+          totalSoal > 0
+            ? Math.round((Number(totalBenar) / Number(totalSoal)) * 100)
+            : 0;
 
-      setQuizResultData({
-        quiz: selectedQuiz,
-        result: {
-          score100: Number(payload.score ?? selectedQuiz.score ?? 0),
-          xpEarned: Number(payload.exp_earned ?? selectedQuiz.xp ?? 0),
-          accuracy,
-          timeText: payload.waktu_penyelesaian
-            ? "-"
-            : selectedQuiz.timeText || "-",
-          totalQuestions: Number(totalSoal || 0),
-          review: payload.review || [],
-        },
-      });
+        setQuizResultData({
+          quiz: selectedQuiz,
+          result: {
+            score100: Number(payload.score ?? selectedQuiz.score ?? 0),
+            xpEarned: Number(payload.exp_earned ?? selectedQuiz.xp ?? 0),
+            accuracy,
+            timeText: payload.waktu_penyelesaian
+              ? "-"
+              : selectedQuiz.timeText || "-",
+            totalQuestions: Number(totalSoal || 0),
+            review: payload.review || [],
+          },
+        });
 
-      setShowQuizResult(true);
-      return;
-    } catch (error) {
-      console.log("Gagal mengambil preview hasil quiz:", error);
+        setShowQuizResult(true);
+        return;
+      } catch (error) {
+        console.log("Gagal mengambil preview hasil quiz:", error);
 
-      setQuizResultData({
-        quiz: selectedQuiz,
-        result: {
-          score100: Number(selectedQuiz.score || 0),
-          xpEarned: Number(selectedQuiz.xp || selectedQuiz.exp_quiz || 0),
-          accuracy: 0,
-          timeText: "-",
-          totalQuestions: 0,
-          review: [],
-        },
-      });
+        setQuizResultData({
+          quiz: selectedQuiz,
+          result: {
+            score100: Number(selectedQuiz.score || 0),
+            xpEarned: Number(selectedQuiz.xp || selectedQuiz.exp_quiz || 0),
+            accuracy: 0,
+            timeText: "-",
+            totalQuestions: 0,
+            review: [],
+          },
+        });
 
-      setShowQuizResult(true);
-      return;
+        setShowQuizResult(true);
+        return;
+      }
     }
-  }
 
-  setQuizTitle(selectedQuiz.title || "Kuis");
-  setActiveQuizId(selectedQuiz.id_quiz);
-  setQuizXp(Number(selectedQuiz?.xp || 0));
-  const shouldShowWorkTutor = shouldShowQuizTutorByDb(
-    selectedQuiz,
-    localModule?.allKuis || localModule?.kuis || [],
-  );
+    setQuizTitle(selectedQuiz.title || "Kuis");
+    setActiveQuizId(selectedQuiz.id_quiz);
+    setQuizXp(Number(selectedQuiz?.xp || 0));
 
-  setQuizWorkTutorActive(shouldShowWorkTutor);
-  setQuizOpen(true);
-};
+    const shouldShowWorkTutor = shouldShowQuizTutorByDb(
+      selectedQuiz,
+      localModule?.allKuis || localModule?.kuis || [],
+    );
+
+    setQuizWorkTutorActive(shouldShowWorkTutor);
+    setQuizOpen(true);
+  };
 
   const closePuzzleDetail = () => {
     setPuzzleDetailOpen(false);
@@ -1115,6 +1152,17 @@ export default function ModulePage({
             },
             quizResult,
           );
+
+          setQuizOpen(false);
+          setQuizResultData({
+            quiz: selectedQuiz || {
+              id_quiz: activeQuizId,
+              title: quizTitle,
+              xp: quizXp,
+            },
+            result: quizResult,
+          });
+          setShowQuizResult(true);
         }}
       />
 

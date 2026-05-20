@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import HasilQuiz from "./HasilQuiz";
 import {
@@ -447,6 +447,115 @@ function getInitial(name) {
     .toUpperCase();
 }
 
+
+function getQuizSessionKey(quizId) {
+  return quizId ? `codetrail_quiz_session_${quizId}` : null;
+}
+
+export const ACTIVE_QUIZ_SESSION_KEY = "codetrail_active_quiz_session";
+
+export function readActiveQuizSession() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_QUIZ_SESSION_KEY);
+    if (!raw) return null;
+
+    const session = JSON.parse(raw);
+    if (!session?.quizId) return null;
+
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+export function clearActiveQuizSession() {
+  try {
+    localStorage.removeItem(ACTIVE_QUIZ_SESSION_KEY);
+  } catch {
+    // Abaikan error storage agar app tidak crash.
+  }
+}
+
+function saveActiveQuizSession({ quizId, quizTitle, quizXp }) {
+  if (!quizId) return;
+
+  try {
+    localStorage.setItem(
+      ACTIVE_QUIZ_SESSION_KEY,
+      JSON.stringify({
+        quizId,
+        quizTitle: quizTitle || "Quiz",
+        quizXp: Number(quizXp || 0),
+        path: window.location.pathname + window.location.search,
+        updatedAt: Date.now(),
+      }),
+    );
+  } catch {
+    // Abaikan error storage agar quiz tidak crash.
+  }
+}
+
+function readQuizSession(quizId) {
+  const key = getQuizSessionKey(quizId);
+  if (!key) return null;
+
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function saveQuizSession(quizId, data) {
+  const key = getQuizSessionKey(quizId);
+  if (!key) return;
+
+  try {
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        ...data,
+        updatedAt: Date.now(),
+      }),
+    );
+  } catch {
+    // Abaikan error storage agar quiz tidak crash.
+  }
+}
+
+function clearQuizSession(quizId) {
+  const key = getQuizSessionKey(quizId);
+  if (!key) return;
+
+  try {
+    localStorage.removeItem(key);
+
+    const activeSession = readActiveQuizSession();
+    if (String(activeSession?.quizId) === String(quizId)) {
+      clearActiveQuizSession();
+    }
+  } catch {
+    // Abaikan error storage agar quiz tidak crash.
+  }
+}
+
+function getHydratedSecondsLeft(savedSession, fallbackSeconds) {
+  if (!savedSession || typeof savedSession.secondsLeft !== "number") {
+    return fallbackSeconds;
+  }
+
+  const savedSeconds = Math.max(0, Number(savedSession.secondsLeft || 0));
+  const updatedAt = Number(savedSession.updatedAt || Date.now());
+  const elapsedAfterReload = Math.max(
+    0,
+    Math.floor((Date.now() - updatedAt) / 1000),
+  );
+
+  return Math.max(0, savedSeconds - elapsedAfterReload);
+}
+
 function getQuestionText(soal) {
   return soal?.question || soal?.pertanyaan || "";
 }
@@ -612,7 +721,7 @@ export default function QuizFullscreen({
   onTutorQuizFinished,
 }) {
   const INITIAL_HEALTH = 100;
-  const QUIZ_TOTAL_SECONDS = 15 * 60;
+  const QUIZ_TOTAL_SECONDS = 20;
 
   const [currentSoal, setCurrentSoal] = useState(null);
   const [selected, setSelected] = useState([]);
@@ -643,12 +752,23 @@ export default function QuizFullscreen({
   const [timerPaused, setTimerPaused] = useState(false);
   const [submitDelayLeft, setSubmitDelayLeft] = useState(0);
   const [openSkillKey, setOpenSkillKey] = useState(null);
+  const [showNotifPopup, setShowNotifPopup] = useState(false);
+  const [notifPopup, setNotifPopup] = useState({
+    title: "",
+    message: "",
+    icon: "⏰",
+  });
 
   const playerName = getDisplayName();
   const playerInitial = getInitial(playerName);
 
   const [gameRoleKey, setGameRoleKey] = useState(getRoleFromStorage());
   const [roleLoading, setRoleLoading] = useState(false);
+
+  const timeoutSubmitRef = useRef(false);
+  const hydratedSessionRef = useRef(false);
+  const saveReadyRef = useRef(false);
+  const timeoutResultTimerRef = useRef(null);
 
   const roleData = ROLE_CONFIGS[gameRoleKey] || null;
   const currentQuestionType = normalizeQuestionType(currentSoal);
@@ -676,6 +796,175 @@ export default function QuizFullscreen({
         Number(progressInfo.total_soal || 1),
     );
   }, [progressInfo]);
+
+  const finishQuizByTimeout = async (progressOverride = null) => {
+    if (timeoutSubmitRef.current) return;
+
+    timeoutSubmitRef.current = true;
+
+    const progressData = progressOverride || progressInfo || {};
+    const totalSoal = Math.max(
+      1,
+      Number(progressData.total_soal || progressData.totalSoal || 20),
+    );
+    const totalDijawab = Math.min(
+      totalSoal,
+      Math.max(0, Number(progressData.total_dijawab || 0)),
+    );
+    const totalBenar = Math.min(
+      totalSoal,
+      Math.max(0, Number(progressData.total_benar || 0)),
+    );
+    const unansweredCountFallback = Math.max(0, totalSoal - totalDijawab);
+    const currentHealthFallback = Math.max(
+      0,
+      Math.min(
+        INITIAL_HEALTH,
+        Number(
+          progressData.score_sementara ??
+            progressData.score ??
+            progressData.health_remaining ??
+            health ??
+            INITIAL_HEALTH,
+        ),
+      ),
+    );
+    const timeoutPenaltyFallback = Math.round(
+      (unansweredCountFallback / totalSoal) * INITIAL_HEALTH,
+    );
+    const finalScoreFallback = Math.max(
+      0,
+      Math.min(INITIAL_HEALTH, currentHealthFallback - timeoutPenaltyFallback),
+    );
+
+    setLoading(false);
+    setSubmitting(true);
+    setSecondsLeft(0);
+    setErrorMessage("");
+    setSkillMessage(
+      `Waktu habis. ${unansweredCountFallback} soal yang belum dijawab dihitung salah.`,
+    );
+
+    setNotifPopup({
+      icon: "⏰",
+      title: "Waktu Habis!",
+      message: `Quiz selesai otomatis. ${unansweredCountFallback} soal belum dijawab dihitung salah.`,
+    });
+    setShowNotifPopup(true);
+
+    let finalResult = null;
+    let finalScore = finalScoreFallback;
+    let unansweredCount = unansweredCountFallback;
+    let timeoutPenalty = timeoutPenaltyFallback;
+
+    try {
+      const response = await submitJawabanMahasiswaApi(quizId, {
+        id_soal: currentSoal?.id || progressData.currentSoalId || null,
+        jawaban_ids: [],
+        skill_data: {
+          ...buildSkillPayload(["time_up"]),
+          time_up: true,
+          timeout: true,
+        },
+        sisa_waktu_detik: 0,
+      });
+
+      if (response?.status === 200 && response?.data?.success) {
+        const payload = response.data.data || {};
+
+        finalScore = Math.max(
+          0,
+          Math.min(INITIAL_HEALTH, Number(payload.score ?? finalScoreFallback)),
+        );
+        unansweredCount = Number(
+          payload.unanswered_count ?? payload.unansweredCount ?? unansweredCountFallback,
+        );
+        timeoutPenalty = Number(
+          payload.timeout_penalty ?? payload.timeoutPenalty ?? timeoutPenaltyFallback,
+        );
+
+        finalResult = buildResultSummary({
+          score: finalScore,
+          expEarned: Number(payload.exp_earned || 0),
+          totalSoal: payload.progress?.total_soal || payload.total_soal || totalSoal,
+          totalBenar: payload.progress?.total_benar || payload.total_benar || totalBenar,
+          waktuPenyelesaian: payload.waktu_penyelesaian ?? 0,
+          secondsElapsed: QUIZ_TOTAL_SECONDS,
+          timeText: "00:00",
+          review: payload.review || [],
+        });
+      } else {
+        console.warn(
+          "Timeout submit gagal, memakai hasil fallback frontend:",
+          response?.data?.message,
+        );
+      }
+    } catch (error) {
+      console.error("Gagal menyelesaikan quiz karena waktu habis:", error);
+    }
+
+    if (!finalResult) {
+      const finalExp = Math.max(
+        0,
+        Math.round((Number(quizXp || 0) * finalScoreFallback) / 100),
+      );
+
+      finalResult = buildResultSummary({
+        score: finalScoreFallback,
+        expEarned: finalExp,
+        totalSoal,
+        totalBenar,
+        waktuPenyelesaian: 0,
+        secondsElapsed: QUIZ_TOTAL_SECONDS,
+        timeText: "00:00",
+        review: [],
+      });
+    }
+
+    finalResult.playWinEffect = false;
+    finalResult.justFinished = true;
+    finalResult.source = "time_up";
+    finalResult.timeout = true;
+    finalResult.unansweredCount = unansweredCount;
+    finalResult.timeoutPenalty = timeoutPenalty;
+
+    setLoading(false);
+    setSubmitting(false);
+    setSecondsLeft(0);
+    setHealth(finalScore);
+    setErrorMessage("");
+    setSkillMessage(
+      `Waktu habis. ${unansweredCount} soal belum dijawab dihitung salah. Health dikurangi ${timeoutPenalty}.`,
+    );
+
+    clearQuizSession(quizId);
+
+    setNotifPopup({
+      icon: "⏰",
+      title: "Waktu Habis!",
+      message: `Quiz selesai otomatis. Health akhir ${finalScore}. Penalti soal belum dijawab ${timeoutPenalty}.`,
+    });
+    setShowNotifPopup(true);
+
+    if (timeoutResultTimerRef.current) {
+      window.clearTimeout(timeoutResultTimerRef.current);
+    }
+
+    timeoutResultTimerRef.current = window.setTimeout(() => {
+      setShowNotifPopup(false);
+      setResult(finalResult);
+      setShowResult(true);
+      onFinish?.(finalResult);
+    }, 1200);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutResultTimerRef.current) {
+        window.clearTimeout(timeoutResultTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -754,38 +1043,132 @@ export default function QuizFullscreen({
   useEffect(() => {
     if (!open) return;
 
+    const savedSession = readQuizSession(quizId);
+    const hydratedSeconds = getHydratedSecondsLeft(
+      savedSession,
+      QUIZ_TOTAL_SECONDS,
+    );
+
+    timeoutSubmitRef.current = false;
+    hydratedSessionRef.current = true;
+    saveReadyRef.current = false;
+
     setCurrentSoal(null);
-    setSelected([]);
+    setSelected(savedSession?.selected || []);
     setShowResult(false);
     setResult(null);
-    setSecondsLeft(QUIZ_TOTAL_SECONDS);
-    setHealth(INITIAL_HEALTH);
-    setHealthBonus(0);
-    setCriminalExpBonus(0);
+    setSecondsLeft(hydratedSeconds);
+    setHealth(Number(savedSession?.health ?? INITIAL_HEALTH));
+    setHealthBonus(Number(savedSession?.healthBonus ?? 0));
+    setCriminalExpBonus(Number(savedSession?.criminalExpBonus ?? 0));
     setErrorMessage("");
     setSkillMessage("");
-    setHintText("");
-    setHighlightQuestion(false);
-    setLockedOptionIds([]);
-    setTargetOptionIds([]);
-    setUsedSkillKeys({});
-    setActiveBackendEffects([]);
-    setTerrainAdvantageCharges(0);
+    setHintText(savedSession?.hintText || "");
+    setHighlightQuestion(Boolean(savedSession?.highlightQuestion));
+    setLockedOptionIds(savedSession?.lockedOptionIds || []);
+    setTargetOptionIds(savedSession?.targetOptionIds || []);
+    setUsedSkillKeys(savedSession?.usedSkillKeys || {});
+    setActiveBackendEffects(savedSession?.activeBackendEffects || []);
+    setTerrainAdvantageCharges(Number(savedSession?.terrainAdvantageCharges || 0));
     setTimerPaused(false);
-    setSubmitDelayLeft(0);
+    setSubmitDelayLeft(Number(savedSession?.submitDelayLeft || 0));
     setOpenSkillKey(null);
-    setProgressInfo({
-      nomor_soal: 1,
-      total_soal: 20,
-      total_dijawab: 0,
-      total_benar: 0,
-    });
+    setProgressInfo(
+      savedSession?.progressInfo || {
+        nomor_soal: 1,
+        total_soal: 20,
+        total_dijawab: 0,
+        total_benar: 0,
+      },
+    );
 
-    if (quizId) {
+    let expiredTimer = null;
+
+    if (hydratedSeconds <= 0) {
+      setErrorMessage("Waktu quiz sudah habis. Menampilkan hasil...");
+      setLoading(false);
+      expiredTimer = window.setTimeout(() => {
+        finishQuizByTimeout(
+          savedSession?.progressInfo || {
+            nomor_soal: 1,
+            total_soal: 20,
+            total_dijawab: 0,
+            total_benar: 0,
+          },
+        );
+      }, 120);
+    } else if (quizId) {
       fetchNextSoal();
     }
+
+    const readyTimer = window.setTimeout(() => {
+      saveReadyRef.current = true;
+    }, 0);
+
+    return () => {
+      if (expiredTimer) window.clearTimeout(expiredTimer);
+      window.clearTimeout(readyTimer);
+      saveReadyRef.current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, quizId]);
+
+
+  useEffect(() => {
+    if (
+      !open ||
+      showResult ||
+      !quizId ||
+      !hydratedSessionRef.current ||
+      !saveReadyRef.current
+    ) {
+      return;
+    }
+
+    saveActiveQuizSession({ quizId, quizTitle, quizXp });
+
+    saveQuizSession(quizId, {
+      quizId,
+      quizTitle,
+      quizXp,
+      secondsLeft,
+      currentSoalId: currentSoal?.id ?? null,
+      selected,
+      progressInfo,
+      health,
+      healthBonus,
+      criminalExpBonus,
+      usedSkillKeys,
+      hintText,
+      highlightQuestion,
+      lockedOptionIds,
+      targetOptionIds,
+      activeBackendEffects,
+      terrainAdvantageCharges,
+      submitDelayLeft,
+    });
+  }, [
+    open,
+    showResult,
+    quizId,
+    quizTitle,
+    quizXp,
+    secondsLeft,
+    currentSoal,
+    selected,
+    progressInfo,
+    health,
+    healthBonus,
+    criminalExpBonus,
+    usedSkillKeys,
+    hintText,
+    highlightQuestion,
+    lockedOptionIds,
+    targetOptionIds,
+    activeBackendEffects,
+    terrainAdvantageCharges,
+    submitDelayLeft,
+  ]);
 
   useEffect(() => {
     if (!currentSoal) return;
@@ -889,11 +1272,15 @@ export default function QuizFullscreen({
 
   useEffect(() => {
     if (!open || showResult) return;
+    if (!currentSoal) return;
+    if (submitting) return;
+    if (secondsLeft > 0) return;
+    if (timeoutSubmitRef.current) return;
 
-    if (secondsLeft <= 0) {
-      setErrorMessage("Waktu quiz sudah habis.");
-    }
-  }, [open, showResult, secondsLeft]);
+    setErrorMessage("Waktu quiz sudah habis. Menampilkan hasil...");
+    finishQuizByTimeout();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, showResult, currentSoal, secondsLeft, submitting]);
 
   const fetchNextSoal = async () => {
     try {
@@ -928,6 +1315,7 @@ export default function QuizFullscreen({
         finalResult.justFinished = true;
         finalResult.source = "finish";
 
+        clearQuizSession(quizId);
         setHealth(Number(payload.score || 0));
         setResult(finalResult);
         setShowResult(true);
@@ -2237,9 +2625,24 @@ setHealth(Math.min(INITIAL_HEALTH, baseHealth));
   ) => {
     const isForcedSubmit = forceSubmit === true;
 
-    if (!currentSoal || submitting || isTimeUp) return;
+    if (!currentSoal || submitting) return;
 
-    if (!isForcedSubmit && selected.length < 1) return;
+    if (!isForcedSubmit && isTimeUp) {
+      setErrorMessage("Waktu quiz sudah habis. Jawaban otomatis dikirim.");
+      return;
+    }
+
+    if (!isForcedSubmit && selected.length < 1) {
+      setErrorMessage("Pilih jawaban terlebih dahulu.");
+      return;
+    }
+
+    if (isForcedSubmit && Math.max(0, Number(secondsLeft || 0)) <= 0) {
+      finishQuizByTimeout();
+      return;
+    }
+
+    const answerIds = selected;
 
     try {
       setSubmitting(true);
@@ -2247,8 +2650,12 @@ setHealth(Math.min(INITIAL_HEALTH, baseHealth));
 
       const response = await submitJawabanMahasiswaApi(quizId, {
         id_soal: currentSoal.id,
-        jawaban_ids: isForcedSubmit ? [] : selected,
-        skill_data: buildSkillPayload(forcedEffects),
+        jawaban_ids: answerIds,
+        skill_data: {
+          ...buildSkillPayload(forcedEffects),
+          forced_submit: isForcedSubmit,
+          time_up: isForcedSubmit && Math.max(0, Number(secondsLeft || 0)) <= 0,
+        },
         sisa_waktu_detik: Math.max(
           0,
           Number(secondsLeft || 0) - Number(forcedTimePenaltySeconds || 0),
@@ -2349,9 +2756,13 @@ setHealth(Math.min(INITIAL_HEALTH, baseHealth));
         ),
       );
 
-      if (payload.finished) {
+      const shouldShowFinalResult =
+        payload.finished ||
+        (isForcedSubmit && Math.max(0, Number(secondsLeft || 0)) <= 0);
+
+      if (shouldShowFinalResult) {
         const finalResult = buildResultSummary({
-          score: payload.score || 0,
+          score: payload.score ?? payload.health_remaining ?? health ?? 0,
           expEarned:
             Number(payload.exp_earned || 0) +
             Number(criminalExpBonus || 0) +
@@ -2359,15 +2770,21 @@ setHealth(Math.min(INITIAL_HEALTH, baseHealth));
           totalSoal: payload.progress?.total_soal || payload.total_soal || 20,
           totalBenar: payload.progress?.total_benar || payload.total_benar || 0,
           waktuPenyelesaian: payload.waktu_penyelesaian ?? null,
-          secondsElapsed,
-          timeText,
+          secondsElapsed:
+            Math.max(0, Number(secondsLeft || 0)) <= 0
+              ? QUIZ_TOTAL_SECONDS
+              : secondsElapsed,
+          timeText:
+            Math.max(0, Number(secondsLeft || 0)) <= 0 ? "00:00" : timeText,
           review: payload.review || [],
         });
 
         finalResult.playWinEffect = true;
         finalResult.justFinished = true;
-        finalResult.source = "finish";
+        finalResult.source =
+          Math.max(0, Number(secondsLeft || 0)) <= 0 ? "time_up" : "finish";
 
+        clearQuizSession(quizId);
         setResult(finalResult);
         setShowResult(true);
         onFinish?.(finalResult);
@@ -2398,6 +2815,16 @@ setHealth(Math.min(INITIAL_HEALTH, baseHealth));
 
   return (
     <div style={S.overlay} onMouseDown={showResult ? onClose : undefined}>
+      {showNotifPopup ? (
+        <div style={S.notifLayer}>
+          <div style={S.notifPopup}>
+            <div style={S.notifIcon}>{notifPopup.icon}</div>
+            <div style={S.notifTitle}>{notifPopup.title}</div>
+            <div style={S.notifMessage}>{notifPopup.message}</div>
+          </div>
+        </div>
+      ) : null}
+
       <div style={S.sheet} onMouseDown={(e) => e.stopPropagation()}>
         {showResult ? (
           <HasilQuiz
@@ -3323,6 +3750,55 @@ const S = {
     zIndex: 11000,
     background: "rgba(2, 6, 23, 0.62)",
     backdropFilter: "blur(8px)",
+  },
+
+  notifLayer: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 13000,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "rgba(2, 6, 23, 0.38)",
+    pointerEvents: "auto",
+  },
+
+  notifPopup: {
+    width: "min(420px, calc(100vw - 36px))",
+    borderRadius: 26,
+    padding: "28px 24px",
+    textAlign: "center",
+    color: "#eef2ff",
+    border: "1px solid rgba(255,255,255,0.14)",
+    background:
+      "radial-gradient(600px 260px at 50% 0%, rgba(255, 195, 77, 0.22), rgba(15,18,35,0.98) 62%)",
+    boxShadow:
+      "0 28px 90px rgba(0,0,0,0.52), 0 0 42px rgba(255, 195, 77, 0.16)",
+  },
+
+  notifIcon: {
+    width: 70,
+    height: 70,
+    margin: "0 auto 14px",
+    borderRadius: 24,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 34,
+    background: "linear-gradient(135deg, rgba(255,195,77,0.28), rgba(255,92,92,0.20))",
+    border: "1px solid rgba(255,255,255,0.12)",
+  },
+
+  notifTitle: {
+    fontSize: 24,
+    fontWeight: 950,
+    marginBottom: 8,
+  },
+
+  notifMessage: {
+    fontSize: 14,
+    lineHeight: 1.55,
+    color: "rgba(235,240,255,0.76)",
   },
 
   sheet: {
