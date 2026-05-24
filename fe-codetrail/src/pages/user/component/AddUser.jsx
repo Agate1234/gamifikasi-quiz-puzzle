@@ -16,15 +16,20 @@ export default function AddUserModal({
   onClose,
   onSubmit,
   loading = false,
-  initialValues,
-  roleOptions = [
-    { value: "ADMIN", label: "Admin" },
-    { value: "DOSEN", label: "Dosen" },
-    { value: "MAHASISWA", label: "Mahasiswa" },
-  ],
 }) {
   const [form] = Form.useForm();
   const [showPass, setShowPass] = useState(false);
+
+  const roleOptions = [
+    {
+      value: 2,
+      label: "Dosen",
+    },
+    {
+      value: 3,
+      label: "Mahasiswa",
+    },
+  ];
 
   const styles = useMemo(() => {
     const input = {
@@ -52,8 +57,14 @@ export default function AddUserModal({
         borderBottom: "1px solid rgba(255,255,255,0.06)",
         background: "transparent",
       },
-      label: { color: "rgba(255,255,255,0.85)" },
-      subtle: { color: "rgba(255,255,255,0.55)", fontSize: 12, marginTop: 6 },
+      label: {
+        color: "rgba(255,255,255,0.85)",
+      },
+      subtle: {
+        color: "rgba(255,255,255,0.55)",
+        fontSize: 12,
+        marginTop: 6,
+      },
       input,
       footer: {
         padding: "12px 16px",
@@ -91,25 +102,28 @@ export default function AddUserModal({
 
   useEffect(() => {
     if (!open) return;
+
     setShowPass(false);
     form.resetFields();
-
-    if (initialValues) {
-      form.setFieldsValue(initialValues);
-    } else {
-      form.setFieldsValue({
-        fullName: "",
-        email: "",
-        password: "",
-        role: undefined,
-      });
-    }
-  }, [open, initialValues, form]);
+    form.setFieldsValue({
+      nama_user: "",
+      email: "",
+      password: "",
+      id_role: undefined,
+    });
+  }, [open, form]);
 
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
-      onSubmit?.(values);
+
+      onSubmit?.({
+        nama_user: values.nama_user,
+        email: values.email,
+        password: values.password,
+        id_role: values.id_role,
+        no_badge: [],
+      });
     } catch {}
   };
 
@@ -124,9 +138,14 @@ export default function AddUserModal({
       keyboard
       destroyOnClose
       onCancel={onClose}
-      styles={{ content: styles.content, body: { padding: 0, background: "transparent" } }}
+      styles={{
+        content: styles.content,
+        body: {
+          padding: 0,
+          background: "transparent",
+        },
+      }}
     >
-      {/* Header */}
       <div style={styles.header}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div
@@ -144,14 +163,16 @@ export default function AddUserModal({
             <UserOutlined />
           </div>
 
-          <Text style={{ color: "#E6ECFF", fontWeight: 900 }}>Tambah User Baru</Text>
+          <Text style={{ color: "#E6ECFF", fontWeight: 900 }}>
+            Tambah User Baru
+          </Text>
         </div>
 
         <button
           type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
             onClose?.();
           }}
           style={styles.closeBtn}
@@ -161,13 +182,17 @@ export default function AddUserModal({
         </button>
       </div>
 
-      {/* Body */}
       <div style={{ padding: 16 }}>
         <Form form={form} layout="vertical" requiredMark={false}>
           <Form.Item
             label={<Text style={styles.label}>Nama Lengkap</Text>}
-            name="fullName"
-            rules={[{ required: true, message: "Nama lengkap wajib diisi" }]}
+            name="nama_user"
+            rules={[
+              {
+                required: true,
+                message: "Nama lengkap wajib diisi",
+              },
+            ]}
           >
             <Input
               placeholder="Masukkan nama lengkap user..."
@@ -184,10 +209,20 @@ export default function AddUserModal({
             label={<Text style={styles.label}>Email Address</Text>}
             name="email"
             rules={[
-              { required: true, message: "Email wajib diisi" },
-              { type: "email", message: "Format email tidak valid" },
+              {
+                required: true,
+                message: "Email wajib diisi",
+              },
+              {
+                type: "email",
+                message: "Format email tidak valid",
+              },
             ]}
-            extra={<span style={styles.subtle}>Pastikan format email valid (contoh: user@domain.com).</span>}
+            extra={
+              <span style={styles.subtle}>
+                Pastikan format email valid. Contoh: user@domain.com
+              </span>
+            }
           >
             <Input
               placeholder="contoh@codetrail.com"
@@ -203,7 +238,16 @@ export default function AddUserModal({
           <Form.Item
             label={<Text style={styles.label}>Password</Text>}
             name="password"
-            rules={[{ required: true, message: "Password wajib diisi" }]}
+            rules={[
+              {
+                required: true,
+                message: "Password wajib diisi",
+              },
+              {
+                min: 6,
+                message: "Password minimal 6 karakter",
+              },
+            ]}
           >
             <Input
               type={showPass ? "text" : "password"}
@@ -215,8 +259,11 @@ export default function AddUserModal({
               }
               suffix={
                 <span
-                  onClick={() => setShowPass((s) => !s)}
-                  style={{ cursor: "pointer", color: "rgba(255,255,255,0.65)" }}
+                  onClick={() => setShowPass((state) => !state)}
+                  style={{
+                    cursor: "pointer",
+                    color: "rgba(255,255,255,0.65)",
+                  }}
                   title={showPass ? "Sembunyikan" : "Tampilkan"}
                 >
                   {showPass ? <EyeOutlined /> : <EyeInvisibleOutlined />}
@@ -228,24 +275,35 @@ export default function AddUserModal({
 
           <Form.Item
             label={<Text style={styles.label}>Role Pengguna</Text>}
-            name="role"
-            rules={[{ required: true, message: "Role wajib dipilih" }]}
-            extra={<span style={styles.subtle}>Role menentukan hak akses pengguna dalam sistem.</span>}
+            name="id_role"
+            rules={[
+              {
+                required: true,
+                message: "Role wajib dipilih",
+              },
+            ]}
+            extra={
+              <span style={styles.subtle}>
+                Admin hanya dapat menambahkan akun Dosen atau Mahasiswa.
+              </span>
+            }
           >
             <Select
               placeholder="Pilih Role"
               options={roleOptions}
               style={{ width: "100%" }}
-              suffixIcon={<TeamOutlined style={{ color: "rgba(255,255,255,0.55)" }} />}
+              suffixIcon={
+                <TeamOutlined style={{ color: "rgba(255,255,255,0.55)" }} />
+              }
             />
           </Form.Item>
         </Form>
       </div>
 
-      {/* Footer */}
       <div style={styles.footer}>
         <Button
           onClick={onClose}
+          disabled={loading}
           style={{
             borderRadius: 12,
             background: "transparent",
@@ -256,7 +314,12 @@ export default function AddUserModal({
           Batal
         </Button>
 
-        <Button type="primary" loading={loading} onClick={handleSave} style={{ borderRadius: 12 }}>
+        <Button
+          type="primary"
+          loading={loading}
+          onClick={handleSave}
+          style={{ borderRadius: 12 }}
+        >
           Simpan User
         </Button>
       </div>

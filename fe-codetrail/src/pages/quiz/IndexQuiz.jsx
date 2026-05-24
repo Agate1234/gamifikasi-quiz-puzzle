@@ -280,7 +280,7 @@ export default function ManageQuiz() {
   title: "MODUL TERKAIT",
   dataIndex: "module",
   key: "module",
-  width: 220,
+  width: 300,
   render: (val) =>
     val ? (
       <Pill color="rgba(124,92,255,0.18)">{val}</Pill>

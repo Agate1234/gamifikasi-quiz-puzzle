@@ -144,7 +144,7 @@ export default function Materi() {
         title: "MODUL TERKAIT",
         dataIndex: "judul_modul",
         key: "judul_modul",
-        width: 220,
+        width: 300,
         render: (val) => <Pill>{val}</Pill>,
       },
       {

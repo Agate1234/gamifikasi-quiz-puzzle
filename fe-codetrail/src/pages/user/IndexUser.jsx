@@ -1,67 +1,62 @@
 import React, { useMemo, useState } from "react";
-import { Card, Input, Space, Button, Typography, Dropdown, Select, Avatar, Tag } from "antd";
-import { PlusOutlined, MoreOutlined, SearchOutlined, FilterOutlined } from "@ant-design/icons";
+import {
+  Card,
+  Input,
+  Space,
+  Button,
+  Typography,
+  Dropdown,
+  Select,
+  Avatar,
+  Tag,
+  message,
+  Popconfirm,
+} from "antd";
+import {
+  PlusOutlined,
+  MoreOutlined,
+  SearchOutlined,
+  FilterOutlined,
+} from "@ant-design/icons";
 import TableList from "../../components/global/TableList.jsx";
-import AddUserModal from "./component/AddUser.jsx"; 
+import AddUserModal from "./component/AddUser.jsx";
+import {
+  getUsersApi,
+  createUserApi,
+  deleteUserApi,
+} from "../../components/api/user.jsx";
 
-// ====== DEMO GET DATA (ganti ke API kamu) ======
-async function getUsers(param) {
-  const params = new URLSearchParams(param);
-
-  const q = (params.get("q") || "").toLowerCase();
-  const role = (params.get("role") || "").toLowerCase();
-
-  const all = [
-    { id: 1, name: "Bapak Budi", email: "budi.dosen@univ.ac.id", role: "dosen" },
-    { id: 2, name: "Andi Pratama", email: "andi.pratama@mhs.univ.ac.id", role: "mahasiswa" },
-    { id: 3, name: "Siti Rahma", email: "siti.rahma@mhs.univ.ac.id", role: "mahasiswa" },
-    { id: 4, name: "Super Admin", email: "admin@codetrail.com", role: "admin" },
-    { id: 5, name: "Dewi Sartika", email: "dewi.sartika@mhs.univ.ac.id", role: "mahasiswa" },
-    { id: 6, name: "Rina Susanti", email: "rina.susanti@univ.ac.id", role: "dosen" },
-  ];
-
-  let filtered = all.filter((x) => {
-    const passQ = !q || x.name.toLowerCase().includes(q) || x.email.toLowerCase().includes(q);
-    const passRole = !role || x.role.toLowerCase() === role;
-    return passQ && passRole;
-  });
-
-  // pagination dummy
-  const page = Number(params.get("page") || 1);
-  const limit = Number(params.get("limit") || 10);
-  const total = filtered.length;
-
-  const start = (page - 1) * limit;
-  const end = start + limit;
-
-  return {
-    data: {
-      data: filtered.slice(start, end),
-      total,
-      paging: {
-        page,
-        limit,
-        total,
-        page_total: Math.max(1, Math.ceil(total / limit)),
-      },
-    },
-    status: 200,
-  };
-}
-
-// ====== UI helpers ======
 function initials(name = "") {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase()).join("");
+  const parts = String(name || "").trim().split(/\s+/).slice(0, 2);
+  return parts.map((part) => part[0]?.toUpperCase()).join("") || "?";
 }
 
 function RolePill({ role }) {
+  const normalized = String(role || "").toLowerCase();
+
   const map = {
-    dosen: { label: "Dosen", bg: "rgba(58,123,255,0.18)", color: "#CFE0FF" },
-    mahasiswa: { label: "Mahasiswa", bg: "rgba(0,201,167,0.18)", color: "#BFF8EB" },
-    admin: { label: "Admin", bg: "rgba(124,92,255,0.18)", color: "#E6ECFF" },
+    dosen: {
+      label: "Dosen",
+      bg: "rgba(58,123,255,0.18)",
+      color: "#CFE0FF",
+    },
+    mahasiswa: {
+      label: "Mahasiswa",
+      bg: "rgba(0,201,167,0.18)",
+      color: "#BFF8EB",
+    },
+    admin: {
+      label: "Admin",
+      bg: "rgba(124,92,255,0.18)",
+      color: "#E6ECFF",
+    },
   };
-  const cfg = map[role] || { label: role, bg: "rgba(255,255,255,0.08)", color: "#E6ECFF" };
+
+  const cfg = map[normalized] || {
+    label: role || "-",
+    bg: "rgba(255,255,255,0.08)",
+    color: "#E6ECFF",
+  };
 
   return (
     <Tag
@@ -83,13 +78,59 @@ function RolePill({ role }) {
 
 export default function ManageUser() {
   const [trigger, setTrigger] = useState(0);
-
   const [q, setQ] = useState("");
   const [role, setRole] = useState("");
-
   const [openAdd, setOpenAdd] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [deleteLoadingId, setDeleteLoadingId] = useState(null);
 
   const queryParams = useMemo(() => ({ q, role }), [q, role]);
+
+  const handleCreateUser = async (values) => {
+    setSubmitLoading(true);
+
+    const response = await createUserApi(values);
+
+    if (
+      response.status >= 200 &&
+      response.status < 300 &&
+      response.data?.success !== false
+    ) {
+      message.success(response.data?.message || "User berhasil ditambahkan");
+      setOpenAdd(false);
+      setTrigger((prev) => prev + 1);
+    } else {
+      message.error(response.data?.message || "Gagal menambahkan user");
+    }
+
+    setSubmitLoading(false);
+  };
+
+  const handleDeleteUser = async (row) => {
+    const idUser = row.id_user || row.id;
+
+    if (!idUser) {
+      message.error("ID user tidak ditemukan");
+      return;
+    }
+
+    setDeleteLoadingId(idUser);
+
+    const response = await deleteUserApi(idUser);
+
+    if (
+      response.status >= 200 &&
+      response.status < 300 &&
+      response.data?.success !== false
+    ) {
+      message.success(response.data?.message || "User berhasil dihapus");
+      setTrigger((prev) => prev + 1);
+    } else {
+      message.error(response.data?.message || "Gagal menghapus user");
+    }
+
+    setDeleteLoadingId(null);
+  };
 
   const columns = useMemo(
     () => [
@@ -111,7 +152,7 @@ export default function ManageUser() {
             </Avatar>
 
             <Typography.Text style={{ color: "#E6ECFF", fontWeight: 800 }}>
-              {row.name}
+              {row.name || "-"}
             </Typography.Text>
           </div>
         ),
@@ -122,7 +163,7 @@ export default function ManageUser() {
         key: "email",
         render: (val) => (
           <Typography.Text style={{ color: "rgba(230,236,255,0.75)" }}>
-            {val}
+            {val || "-"}
           </Typography.Text>
         ),
       },
@@ -139,68 +180,123 @@ export default function ManageUser() {
         width: 80,
         align: "right",
         render: (_, row) => {
-          const items = [
-            { key: "detail", label: "Detail", onClick: () => console.log("detail", row) },
-            { key: "edit", label: "Edit", onClick: () => console.log("edit", row) },
-            { key: "delete", label: "Hapus", onClick: () => console.log("hapus", row) },
+          const idUser = row.id_user || row.id;
+
+          const menuItems = [
+            {
+              key: "detail",
+              label: "Detail",
+              onClick: () => {
+                console.log("detail", row);
+              },
+            },
+            {
+              key: "delete",
+              label: (
+                <Popconfirm
+                  title="Hapus user?"
+                  description={`Yakin ingin menghapus ${row.name || "user ini"}?`}
+                  okText="Hapus"
+                  cancelText="Batal"
+                  okButtonProps={{
+                    danger: true,
+                    loading: deleteLoadingId === idUser,
+                  }}
+                  onConfirm={() => handleDeleteUser(row)}
+                >
+                  <span style={{ color: "#ff7875" }}>Hapus</span>
+                </Popconfirm>
+              ),
+            },
           ];
+
           return (
-            <Dropdown menu={{ items }} trigger={["click"]} placement="bottomRight">
+            <Dropdown
+              menu={{ items: menuItems }}
+              trigger={["click"]}
+              placement="bottomRight"
+            >
               <Button
                 type="text"
-                icon={<MoreOutlined style={{ color: "rgba(255,255,255,0.65)" }} />}
+                icon={
+                  <MoreOutlined style={{ color: "rgba(255,255,255,0.65)" }} />
+                }
               />
             </Dropdown>
           );
         },
       },
     ],
-    []
+    [deleteLoadingId],
   );
 
   const mobile = useMemo(
     () => ({
-      r1: { name: "name", style: { fontWeight: 800, color: "#E6ECFF" } },
-      r2: { text: "Email", name: "email", type: "secondary" },
-      r3: { text: "Role", name: "role", type: "secondary" },
-      r5: { text: "", name: "" },
-      r6: { text: "", name: "" },
+      r1: {
+        name: "name",
+        style: {
+          fontWeight: 800,
+          color: "#E6ECFF",
+        },
+      },
+      r2: {
+        text: "Email",
+        name: "email",
+        type: "secondary",
+      },
+      r3: {
+        text: "Role",
+        name: "role",
+        type: "secondary",
+      },
+      r5: {
+        text: "",
+        name: "",
+      },
+      r6: {
+        text: "",
+        name: "",
+      },
       actionLabel: "Detail",
       action: (item) => console.log("detail mobile", item),
     }),
-    []
+    [],
   );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Header */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
+          flexWrap: "wrap",
         }}
       >
         <div>
           <Typography.Title level={4} style={{ margin: 0, color: "#E6ECFF" }}>
             Manajemen User
           </Typography.Title>
+
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            Kelola akun admin, dosen, dan mahasiswa.
+            Kelola akun dosen dan mahasiswa.
           </Typography.Text>
         </div>
 
-        <Space>
+        <Space wrap>
           <Input
             allowClear
             value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onPressEnter={() => setTrigger((x) => x + 1)}
-            prefix={<SearchOutlined style={{ color: "rgba(255,255,255,0.45)" }} />}
+            onChange={(event) => setQ(event.target.value)}
+            onPressEnter={() => setTrigger((prev) => prev + 1)}
+            prefix={
+              <SearchOutlined style={{ color: "rgba(255,255,255,0.45)" }} />
+            }
             placeholder="Cari user..."
             style={{ width: 260, borderRadius: 14 }}
           />
+
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -212,30 +308,47 @@ export default function ManageUser() {
         </Space>
       </div>
 
-      {/* Filter row (Semua Role) */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <Select
           value={role || undefined}
-          onChange={(v) => {
-            setRole(v || "");
-            setTrigger((x) => x + 1);
+          onChange={(value) => {
+            setRole(value || "");
+            setTrigger((prev) => prev + 1);
           }}
           allowClear
           placeholder={
             <span style={{ color: "rgba(230,236,255,0.75)" }}>
-              <FilterOutlined />&nbsp; Semua Role
+              <FilterOutlined />
+              &nbsp; Semua Role
             </span>
           }
           style={{ minWidth: 170, borderRadius: 14 }}
           options={[
-            { label: "Admin", value: "admin" },
-            { label: "Dosen", value: "dosen" },
-            { label: "Mahasiswa", value: "mahasiswa" },
+            {
+              label: "Dosen",
+              value: "dosen",
+            },
+            {
+              label: "Mahasiswa",
+              value: "mahasiswa",
+            },
           ]}
         />
+
+        <Button
+          onClick={() => setTrigger((prev) => prev + 1)}
+          style={{
+            borderRadius: 14,
+            background: "rgba(124,92,255,0.16)",
+            border: "1px solid rgba(124,92,255,0.35)",
+            color: "#E6ECFF",
+            fontWeight: 700,
+          }}
+        >
+          Terapkan
+        </Button>
       </div>
 
-      {/* Table */}
       <Card
         style={{
           borderRadius: 16,
@@ -245,7 +358,7 @@ export default function ManageUser() {
         bodyStyle={{ padding: 16 }}
       >
         <TableList
-          getData={getUsers}
+          getData={getUsersApi}
           queryParams={queryParams}
           columns={columns}
           trigger={trigger}
@@ -254,14 +367,12 @@ export default function ManageUser() {
           onDataLoaded={() => {}}
         />
 
-       <AddUserModal
-  open={openAdd}
-  onClose={() => setOpenAdd(false)}
-  onSubmit={(values) => {
-    console.log(values);
-    setOpenAdd(false);
-  }}
-/>;
+        <AddUserModal
+          open={openAdd}
+          onClose={() => setOpenAdd(false)}
+          onSubmit={handleCreateUser}
+          loading={submitLoading}
+        />
       </Card>
     </div>
   );
