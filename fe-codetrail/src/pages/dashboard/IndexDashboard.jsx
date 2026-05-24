@@ -1,5 +1,15 @@
-import React from "react";
-import { Row, Col, Card, Typography, Space, Button, List } from "antd";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Row,
+  Col,
+  Card,
+  Typography,
+  Space,
+  Button,
+  List,
+  Spin,
+  message,
+} from "antd";
 import {
   TeamOutlined,
   CalendarOutlined,
@@ -10,6 +20,7 @@ import {
   UploadOutlined,
   TrophyOutlined,
 } from "@ant-design/icons";
+import { getDashboardApi } from "../../components/api/dashboard";
 
 function StatCard({ title, value, sub, icon }) {
   return (
@@ -21,16 +32,27 @@ function StatCard({ title, value, sub, icon }) {
       }}
       bodyStyle={{ padding: 16 }}
     >
-      <Space style={{ width: "100%", justifyContent: "space-between" }} align="start">
+      <Space
+        style={{ width: "100%", justifyContent: "space-between" }}
+        align="start"
+      >
         <div>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             {title}
           </Typography.Text>
+
           <div style={{ marginTop: 6 }}>
-            <Typography.Text style={{ fontSize: 26, fontWeight: 800, color: "#E6ECFF" }}>
+            <Typography.Text
+              style={{
+                fontSize: 26,
+                fontWeight: 800,
+                color: "#E6ECFF",
+              }}
+            >
               {value}
             </Typography.Text>
           </div>
+
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             {sub}
           </Typography.Text>
@@ -54,226 +76,540 @@ function StatCard({ title, value, sub, icon }) {
   );
 }
 
-function LineChartMock() {
-  // chart sederhana pakai SVG (no library)
-  const points = [
-    [0, 80],
-    [40, 110],
-    [80, 70],
-    [120, 120],
-    [160, 60],
-    [200, 100],
-    [240, 55],
-    [280, 130],
-    [320, 65],
-    [360, 120],
-    [400, 50],
-    [440, 140],
-  ];
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("en-US");
+}
+
+function formatRelativeTime(dateValue) {
+  if (!dateValue) return "-";
+
+  const date = new Date(dateValue);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+
+  if (diffMinutes < 1) return "Baru saja";
+  if (diffMinutes < 60) return `${diffMinutes} menit yang lalu`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} jam yang lalu`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} hari yang lalu`;
+}
+
+function LineChart({ data = [] }) {
+  const chartData =
+    data.length > 0
+      ? data
+      : [
+          { label: "Sen", total: 0 },
+          { label: "Sel", total: 0 },
+          { label: "Rab", total: 0 },
+          { label: "Kam", total: 0 },
+          { label: "Jum", total: 0 },
+          { label: "Sab", total: 0 },
+          { label: "Min", total: 0 },
+        ];
+
+  const width = 720;
+  const height = 260;
+
+  const paddingLeft = 54;
+  const paddingRight = 22;
+  const paddingTop = 24;
+  const paddingBottom = 42;
+
+  const rawMax = Math.max(
+    ...chartData.map((item) => Number(item.total || 0)),
+    1,
+  );
+
+  const maxValue = Math.max(5, Math.ceil(rawMax / 5) * 5);
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) =>
+    Math.round(maxValue * ratio),
+  );
+
+  const plotWidth = width - paddingLeft - paddingRight;
+  const plotHeight = height - paddingTop - paddingBottom;
+
+  const getX = (index) => {
+    if (chartData.length === 1) return paddingLeft + plotWidth / 2;
+
+    return paddingLeft + (index / (chartData.length - 1)) * plotWidth;
+  };
+
+  const getY = (value) => {
+    return (
+      paddingTop +
+      plotHeight -
+      (Number(value || 0) / maxValue) * plotHeight
+    );
+  };
+
+  const points = chartData.map((item, index) => [
+    getX(index),
+    getY(item.total),
+  ]);
 
   const path = points
-    .map(([x, y], i) => (i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`))
+    .map(([x, y], index) => (index === 0 ? `M ${x} ${y}` : `L ${x} ${y}`))
     .join(" ");
 
   return (
-    <div style={{ width: "100%", height: 220 }}>
-      <svg viewBox="0 0 460 160" width="100%" height="100%">
-        {/* grid */}
-        {[20, 50, 80, 110, 140].map((y) => (
-          <line key={y} x1="0" y1={y} x2="460" y2={y} stroke="rgba(255,255,255,0.07)" />
+    <div style={{ width: "100%", height: 300 }}>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        width="100%"
+        height="100%"
+        preserveAspectRatio="none"
+      >
+        {yTicks.map((tick) => {
+          const y = getY(tick);
+
+          return (
+            <g key={tick}>
+              <line
+                x1={paddingLeft}
+                y1={y}
+                x2={width - paddingRight}
+                y2={y}
+                stroke="rgba(255,255,255,0.08)"
+              />
+
+              <text
+                x={paddingLeft - 12}
+                y={y + 4}
+                textAnchor="end"
+                fontSize="11"
+                fill="rgba(230,236,255,0.55)"
+              >
+                {tick}
+              </text>
+            </g>
+          );
+        })}
+
+        <line
+          x1={paddingLeft}
+          y1={paddingTop}
+          x2={paddingLeft}
+          y2={height - paddingBottom}
+          stroke="rgba(255,255,255,0.12)"
+        />
+
+        <line
+          x1={paddingLeft}
+          y1={height - paddingBottom}
+          x2={width - paddingRight}
+          y2={height - paddingBottom}
+          stroke="rgba(255,255,255,0.12)"
+        />
+
+        <path
+          d={path}
+          fill="none"
+          stroke="rgba(124,92,255,0.32)"
+          strokeWidth="9"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        <path
+          d={path}
+          fill="none"
+          stroke="#7C5CFF"
+          strokeWidth="3"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        {points.map(([x, y], index) => {
+          const total = Number(chartData[index]?.total || 0);
+
+          return (
+            <g key={index}>
+              <circle
+                cx={x}
+                cy={y}
+                r="5"
+                fill="#7C5CFF"
+                stroke="rgba(230,236,255,0.9)"
+                strokeWidth="1.5"
+              />
+
+              <text
+                x={x}
+                y={y - 12}
+                textAnchor="middle"
+                fontSize="11"
+                fontWeight="700"
+                fill="rgba(230,236,255,0.8)"
+              >
+                {total}
+              </text>
+            </g>
+          );
+        })}
+
+        {chartData.map((item, index) => (
+          <text
+            key={index}
+            x={getX(index)}
+            y={height - 14}
+            textAnchor="middle"
+            fontSize="11"
+            fill="rgba(230,236,255,0.55)"
+          >
+            {item.label}
+          </text>
         ))}
-
-        {/* line */}
-        <path d={path} fill="none" stroke="#7C5CFF" strokeWidth="3" strokeLinejoin="round" />
-
-        {/* glow */}
-        <path d={path} fill="none" stroke="rgba(124,92,255,0.35)" strokeWidth="8" strokeLinejoin="round" />
       </svg>
-
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
-        {["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"].map((d) => (
-          <Typography.Text key={d} type="secondary" style={{ fontSize: 11 }}>
-            {d}
-          </Typography.Text>
-        ))}
-      </div>
     </div>
   );
 }
 
 export default function Dashboard() {
-  const recent = [
-    { title: 'Rina Wati mengirim jawaban puzzle "Algoritma Dasar".', time: "2 menit yang lalu" },
-    { title: 'Doni P. bergabung ke event "Hackathon 2024".', time: "15 menit yang lalu" },
-    { title: 'Modul baru "Struktur Data" otomatis diterbitkan.', time: "1 jam yang lalu" },
-    { title: "Sistem: 5 mahasiswa menunggu penilaian.", time: "5 jam yang lalu" },
-  ];
+  const [loading, setLoading] = useState(false);
+  const [dashboard, setDashboard] = useState({
+    stats: {
+      total_mahasiswa: 0,
+      total_event: 0,
+      puzzle_pending: 0,
+      rata_rata_nilai: 0,
+      total_quiz_selesai: 0,
+      total_puzzle_selesai: 0,
+      total_materi_selesai: 0,
+    },
+    weekly_activity: [],
+    recent_activity: [],
+    top_students: [],
+  });
+
+  const fetchDashboard = async () => {
+    setLoading(true);
+
+    const response = await getDashboardApi();
+
+    if (
+      response.status >= 200 &&
+      response.status < 300 &&
+      response.data?.success !== false
+    ) {
+      setDashboard(response.data?.data || dashboard);
+    } else {
+      message.error(
+        response.data?.message || "Gagal mengambil data dashboard.",
+      );
+    }
+
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchDashboard();
+  }, []);
+
+  const stats = dashboard.stats || {};
+  const recent = dashboard.recent_activity || [];
+  const weeklyActivity = dashboard.weekly_activity || [];
+
+  const recentLimited = useMemo(() => {
+    return (recent || []).slice(0, 4);
+  }, [recent]);
+
+  const completionSub = useMemo(() => {
+    return `${formatNumber(stats.total_materi_selesai)} materi, ${formatNumber(
+      stats.total_quiz_selesai,
+    )} quiz, ${formatNumber(stats.total_puzzle_selesai)} puzzle selesai`;
+  }, [stats]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Stat cards */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={12} lg={6}>
-          <StatCard title="Total Mahasiswa" value="120" sub="Terdaftar semester ini" icon={<TeamOutlined />} />
-        </Col>
-        <Col xs={24} md={12} lg={6}>
-          <StatCard title="Event Aktif" value="5" sub="Sedang berlangsung" icon={<CalendarOutlined />} />
-        </Col>
-        <Col xs={24} md={12} lg={6}>
-          <StatCard title="Puzzle Pending" value="12" sub="Butuh review" icon={<HourglassOutlined />} />
-        </Col>
-        <Col xs={24} md={12} lg={6}>
-          <StatCard title="Rata-rata Nilai" value="85%" sub="Rata-rata skor global" icon={<BarChartOutlined />} />
-        </Col>
-      </Row>
-
-      {/* Chart + Activity */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={16}>
-          <Card
-            style={{
-              borderRadius: 16,
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.06)",
-            }}
-            bodyStyle={{ padding: 16 }}
-          >
-            <Space style={{ width: "100%", justifyContent: "space-between" }} align="start">
-              <div>
-                <Typography.Text style={{ color: "#E6ECFF", fontWeight: 800 }}>
-                  Aktivitas Mahasiswa
-                </Typography.Text>
-                <div>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    Overview keterlibatan mingguan
-                  </Typography.Text>
-                </div>
-              </div>
-
-              <Button
-                size="small"
-                style={{ borderRadius: 12 }}
-                icon={<RightOutlined />}
-              >
-                7 Hari Terakhir
-              </Button>
-            </Space>
-
-            <div style={{ marginTop: 10 }}>
-              <LineChartMock />
-            </div>
-          </Card>
-        </Col>
-
-        <Col xs={24} lg={8}>
-          <Card
-            style={{
-              borderRadius: 16,
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              height: "100%",
-            }}
-            bodyStyle={{ padding: 16 }}
-          >
-            <Typography.Text style={{ color: "#E6ECFF", fontWeight: 800 }}>
-              Aktivitas Terbaru
-            </Typography.Text>
-
-            <List
-              style={{ marginTop: 10 }}
-              dataSource={recent}
-              renderItem={(item) => (
-                <List.Item style={{ paddingInline: 0 }}>
-                  <List.Item.Meta
-                    title={
-                      <Typography.Text style={{ color: "#E6ECFF", fontSize: 13, fontWeight: 600 }}>
-                        {item.title}
-                      </Typography.Text>
-                    }
-                    description={
-                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                        {item.time}
-                      </Typography.Text>
-                    }
-                  />
-                </List.Item>
-              )}
+    <Spin spinning={loading}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={12} lg={6}>
+            <StatCard
+              title="Total Mahasiswa"
+              value={formatNumber(stats.total_mahasiswa)}
+              sub="Role mahasiswa aktif"
+              icon={<TeamOutlined />}
             />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Quick Actions */}
-      <Card
-        style={{
-          borderRadius: 16,
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.06)",
-        }}
-        bodyStyle={{ padding: 16 }}
-      >
-        <Typography.Text style={{ color: "#E6ECFF", fontWeight: 800 }}>
-          Quick Actions
-        </Typography.Text>
-
-        <Row gutter={[16, 16]} style={{ marginTop: 12 }}>
-          <Col xs={24} md={12} lg={6}>
-            <Card
-              hoverable
-              style={{ borderRadius: 16, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
-              bodyStyle={{ padding: 16 }}
-            >
-              <Space direction="vertical" size={6}>
-                <div style={{ color: "#7C5CFF", fontSize: 18 }}><FileDoneOutlined /></div>
-                <Typography.Text style={{ color: "#E6ECFF", fontWeight: 700 }}>Buat Soal</Typography.Text>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>Tambahkan pertanyaan</Typography.Text>
-              </Space>
-            </Card>
           </Col>
 
           <Col xs={24} md={12} lg={6}>
-            <Card
-              hoverable
-              style={{ borderRadius: 16, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
-              bodyStyle={{ padding: 16 }}
-            >
-              <Space direction="vertical" size={6}>
-                <div style={{ color: "#7C5CFF", fontSize: 18 }}><UploadOutlined /></div>
-                <Typography.Text style={{ color: "#E6ECFF", fontWeight: 700 }}>Upload Materi</Typography.Text>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>PDF atau video</Typography.Text>
-              </Space>
-            </Card>
+            <StatCard
+              title="Event"
+              value={formatNumber(stats.total_event)}
+              sub="Total event terdaftar"
+              icon={<CalendarOutlined />}
+            />
           </Col>
 
           <Col xs={24} md={12} lg={6}>
-            <Card
-              hoverable
-              style={{ borderRadius: 16, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
-              bodyStyle={{ padding: 16 }}
-            >
-              <Space direction="vertical" size={6}>
-                <div style={{ color: "#7C5CFF", fontSize: 18 }}><CalendarOutlined /></div>
-                <Typography.Text style={{ color: "#E6ECFF", fontWeight: 700 }}>Event Baru</Typography.Text>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>Jadwalkan kompetisi</Typography.Text>
-              </Space>
-            </Card>
+            <StatCard
+              title="Puzzle Pending"
+              value={formatNumber(stats.puzzle_pending)}
+              sub="Puzzle belum selesai"
+              icon={<HourglassOutlined />}
+            />
           </Col>
 
           <Col xs={24} md={12} lg={6}>
+            <StatCard
+              title="Rata-rata Nilai"
+              value={`${formatNumber(stats.rata_rata_nilai)}%`}
+              sub={completionSub}
+              icon={<BarChartOutlined />}
+            />
+          </Col>
+        </Row>
+
+        <Row gutter={[16, 16]}>
+          <Col xs={24} lg={16}>
             <Card
-              hoverable
-              style={{ borderRadius: 16, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+              style={{
+                borderRadius: 16,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
               bodyStyle={{ padding: 16 }}
             >
-              <Space direction="vertical" size={6}>
-                <div style={{ color: "#7C5CFF", fontSize: 18 }}><TrophyOutlined /></div>
-                <Typography.Text style={{ color: "#E6ECFF", fontWeight: 700 }}>Laporan</Typography.Text>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>Cek hasil ujian</Typography.Text>
+              <Space
+                style={{
+                  width: "100%",
+                  justifyContent: "space-between",
+                }}
+                align="start"
+              >
+                <div>
+                  <Typography.Text
+                    style={{ color: "#E6ECFF", fontWeight: 800 }}
+                  >
+                    Aktivitas Mahasiswa
+                  </Typography.Text>
+
+                  <div>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      Overview keterlibatan 7 hari terakhir
+                    </Typography.Text>
+                  </div>
+                </div>
+
+                <Button
+                  size="small"
+                  style={{ borderRadius: 12 }}
+                  icon={<RightOutlined />}
+                  onClick={fetchDashboard}
+                >
+                  Refresh
+                </Button>
               </Space>
+
+              <div style={{ marginTop: 14, minHeight: 300 }}>
+                <LineChart data={weeklyActivity} />
+              </div>
+            </Card>
+          </Col>
+
+          <Col xs={24} lg={8}>
+            <Card
+              style={{
+                borderRadius: 16,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                height: "100%",
+              }}
+              bodyStyle={{ padding: 16 }}
+            >
+              <Space
+                style={{
+                  width: "100%",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography.Text
+                  style={{ color: "#E6ECFF", fontWeight: 800 }}
+                >
+                  Aktivitas Terbaru
+                </Typography.Text>
+
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {recentLimited.length}/4
+                </Typography.Text>
+              </Space>
+
+              <div
+                style={{
+                  marginTop: 10,
+                  maxHeight: 280,
+                  overflowY: "auto",
+                  paddingRight: 6,
+                }}
+              >
+                <List
+                  dataSource={recentLimited}
+                  locale={{ emptyText: "Belum ada aktivitas terbaru" }}
+                  renderItem={(item) => (
+                    <List.Item style={{ paddingInline: 0 }}>
+                      <List.Item.Meta
+                        title={
+                          <Typography.Text
+                            style={{
+                              color: "#E6ECFF",
+                              fontSize: 13,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {item.title}
+                          </Typography.Text>
+                        }
+                        description={
+                          <Typography.Text
+                            type="secondary"
+                            style={{ fontSize: 12 }}
+                          >
+                            {formatRelativeTime(item.created_at)}
+                          </Typography.Text>
+                        }
+                      />
+                    </List.Item>
+                  )}
+                />
+              </div>
             </Card>
           </Col>
         </Row>
-      </Card>
-    </div>
+
+        <Card
+          style={{
+            borderRadius: 16,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.06)",
+          }}
+          bodyStyle={{ padding: 16 }}
+        >
+          <Typography.Text style={{ color: "#E6ECFF", fontWeight: 800 }}>
+            Quick Actions
+          </Typography.Text>
+
+          <Row gutter={[16, 16]} style={{ marginTop: 12 }}>
+            <Col xs={24} md={12} lg={6}>
+              <Card
+                hoverable
+                style={{
+                  borderRadius: 16,
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                }}
+                bodyStyle={{ padding: 16 }}
+              >
+                <Space direction="vertical" size={6}>
+                  <div style={{ color: "#7C5CFF", fontSize: 18 }}>
+                    <FileDoneOutlined />
+                  </div>
+
+                  <Typography.Text
+                    style={{ color: "#E6ECFF", fontWeight: 700 }}
+                  >
+                    Buat Soal
+                  </Typography.Text>
+
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    Tambahkan pertanyaan
+                  </Typography.Text>
+                </Space>
+              </Card>
+            </Col>
+
+            <Col xs={24} md={12} lg={6}>
+              <Card
+                hoverable
+                style={{
+                  borderRadius: 16,
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                }}
+                bodyStyle={{ padding: 16 }}
+              >
+                <Space direction="vertical" size={6}>
+                  <div style={{ color: "#7C5CFF", fontSize: 18 }}>
+                    <UploadOutlined />
+                  </div>
+
+                  <Typography.Text
+                    style={{ color: "#E6ECFF", fontWeight: 700 }}
+                  >
+                    Upload Materi
+                  </Typography.Text>
+
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    PDF atau video
+                  </Typography.Text>
+                </Space>
+              </Card>
+            </Col>
+
+            <Col xs={24} md={12} lg={6}>
+              <Card
+                hoverable
+                style={{
+                  borderRadius: 16,
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                }}
+                bodyStyle={{ padding: 16 }}
+              >
+                <Space direction="vertical" size={6}>
+                  <div style={{ color: "#7C5CFF", fontSize: 18 }}>
+                    <CalendarOutlined />
+                  </div>
+
+                  <Typography.Text
+                    style={{ color: "#E6ECFF", fontWeight: 700 }}
+                  >
+                    Event Baru
+                  </Typography.Text>
+
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    Jadwalkan kompetisi
+                  </Typography.Text>
+                </Space>
+              </Card>
+            </Col>
+
+            <Col xs={24} md={12} lg={6}>
+              <Card
+                hoverable
+                style={{
+                  borderRadius: 16,
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                }}
+                bodyStyle={{ padding: 16 }}
+              >
+                <Space direction="vertical" size={6}>
+                  <div style={{ color: "#7C5CFF", fontSize: 18 }}>
+                    <TrophyOutlined />
+                  </div>
+
+                  <Typography.Text
+                    style={{ color: "#E6ECFF", fontWeight: 700 }}
+                  >
+                    Laporan
+                  </Typography.Text>
+
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    Cek hasil ujian
+                  </Typography.Text>
+                </Space>
+              </Card>
+            </Col>
+          </Row>
+        </Card>
+      </div>
+    </Spin>
   );
 }

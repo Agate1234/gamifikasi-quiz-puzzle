@@ -5,7 +5,6 @@ import {
   Space,
   Button,
   Typography,
-  Dropdown,
   Select,
   Avatar,
   Tag,
@@ -13,93 +12,16 @@ import {
 import { SearchOutlined, EyeOutlined, FilterOutlined } from "@ant-design/icons";
 import TableList from "../../components/global/TableList.jsx";
 import PreviewScoreMahasiswaModal from "./component/DetailHasil.jsx";
+import { getHasilMahasiswaApi } from "../../components/api/hasilmahassiwa.jsx";
 
-// ====== DEMO GET DATA (ganti ke API kamu) ======
-async function getHasilMahasiswa(param) {
-  const params = new URLSearchParams(param);
-
-  const q = (params.get("q") || "").toLowerCase();
-  const kelas = (params.get("kelas") || "").toLowerCase();
-
-  const all = [
-    {
-      id: 1,
-      name: "Rina Aulia",
-      nim: "202301045",
-      kelas: "Kelas A",
-      xp: 12450,
-    },
-    {
-      id: 2,
-      name: "Dimas Pratama",
-      nim: "202301052",
-      kelas: "Kelas A",
-      xp: 8920,
-    },
-    {
-      id: 3,
-      name: "Siti Nurhaliza",
-      nim: "202301011",
-      kelas: "Kelas B",
-      xp: 15200,
-    },
-    {
-      id: 4,
-      name: "Bayu Pamungkas",
-      nim: "202301088",
-      kelas: "Kelas B",
-      xp: 6400,
-    },
-    {
-      id: 5,
-      name: "Putri Indah",
-      nim: "202301035",
-      kelas: "Kelas A",
-      xp: 10150,
-    },
-  ];
-
-  let filtered = all.filter((x) => {
-    const passQ = !q || x.name.toLowerCase().includes(q) || x.nim.includes(q);
-    const passKelas = !kelas || x.kelas.toLowerCase() === kelas;
-    return passQ && passKelas;
-  });
-
-  // sort default: xp desc (biar top scoring di atas)
-  filtered = [...filtered].sort((a, b) => b.xp - a.xp);
-
-  // pagination dummy
-  const page = Number(params.get("page") || 1);
-  const limit = Number(params.get("limit") || 10);
-  const total = filtered.length;
-
-  const start = (page - 1) * limit;
-  const end = start + limit;
-
-  return {
-    data: {
-      data: filtered.slice(start, end),
-      total,
-      paging: {
-        page,
-        limit,
-        total,
-        page_total: Math.max(1, Math.ceil(total / limit)),
-      },
-    },
-    status: 200,
-  };
-}
-
-// ====== UI helpers ======
 function initials(name = "") {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase()).join("");
+  const parts = String(name || "").trim().split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase()).join("") || "?";
 }
 
 function formatXP(num) {
   const n = Number(num || 0);
-  return n.toLocaleString("en-US"); // 12,450
+  return n.toLocaleString("en-US");
 }
 
 function XPPill({ xp }) {
@@ -116,7 +38,7 @@ function XPPill({ xp }) {
         fontWeight: 700,
       }}
     >
-      {formatXP(xp)} XP
+      {formatXP(xp)} Score
     </Tag>
   );
 }
@@ -126,10 +48,11 @@ export default function HasilMahasiswa() {
 
   const [q, setQ] = useState("");
   const [kelas, setKelas] = useState("");
+  const [sort, setSort] = useState("desc");
   const [openScore, setOpenScore] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
-  const queryParams = useMemo(() => ({ q, kelas }), [q, kelas]);
+  const queryParams = useMemo(() => ({ q, kelas, sort }), [q, kelas, sort]);
 
   const columns = useMemo(
     () => [
@@ -154,10 +77,10 @@ export default function HasilMahasiswa() {
               <Typography.Text
                 style={{ color: "#E6ECFF", fontWeight: 800, display: "block" }}
               >
-                {row.name}
+                {row.name || "-"}
               </Typography.Text>
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                NIM: {row.nim}
+                NIM: {row.nim || "-"}
               </Typography.Text>
             </div>
           </div>
@@ -187,31 +110,34 @@ export default function HasilMahasiswa() {
         ),
       },
     ],
-    []
+    [],
   );
 
   const mobile = useMemo(
     () => ({
       r1: { name: "name", style: { fontWeight: 800, color: "#E6ECFF" } },
       r2: { text: "NIM", name: "nim", type: "secondary" },
-      r3: { text: "XP", name: "xp", type: "secondary" },
+      r3: { text: "Score", name: "xp", type: "secondary" },
       r5: { text: "", name: "" },
       r6: { text: "", name: "" },
       actionLabel: "Detail",
-      action: (item) => console.log("detail mobile", item),
+      action: (item) => {
+        setSelectedStudent(item);
+        setOpenScore(true);
+      },
     }),
-    []
+    [],
   );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Header */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
+          flexWrap: "wrap",
         }}
       >
         <div>
@@ -231,12 +157,11 @@ export default function HasilMahasiswa() {
           prefix={
             <SearchOutlined style={{ color: "rgba(255,255,255,0.45)" }} />
           }
-          placeholder="Cari nama mahasiswa..."
+          placeholder="Cari nama / email mahasiswa..."
           style={{ width: 280, borderRadius: 14 }}
         />
       </div>
 
-      {/* Filter row (Semua Kelas) */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <Select
           value={kelas || undefined}
@@ -257,9 +182,34 @@ export default function HasilMahasiswa() {
             { label: "Kelas B", value: "Kelas B" },
           ]}
         />
+
+        <Select
+          value={sort}
+          onChange={(v) => {
+            setSort(v);
+            setTrigger((x) => x + 1);
+          }}
+          style={{ minWidth: 190, borderRadius: 14 }}
+          options={[
+            { label: "Score Tertinggi", value: "desc" },
+            { label: "Score Terendah", value: "asc" },
+          ]}
+        />
+
+        <Button
+          onClick={() => setTrigger((x) => x + 1)}
+          style={{
+            borderRadius: 14,
+            background: "rgba(124,92,255,0.16)",
+            border: "1px solid rgba(124,92,255,0.35)",
+            color: "#E6ECFF",
+            fontWeight: 700,
+          }}
+        >
+          Terapkan
+        </Button>
       </div>
 
-      {/* Table */}
       <Card
         style={{
           borderRadius: 16,
@@ -269,7 +219,7 @@ export default function HasilMahasiswa() {
         bodyStyle={{ padding: 16 }}
       >
         <TableList
-          getData={getHasilMahasiswa}
+          getData={getHasilMahasiswaApi}
           queryParams={queryParams}
           columns={columns}
           trigger={trigger}

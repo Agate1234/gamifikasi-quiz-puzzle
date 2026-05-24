@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   Button,
@@ -8,10 +8,15 @@ import {
   Avatar,
   Tag,
   Select,
+  Spin,
+  Empty,
+  message,
 } from "antd";
 import { ArrowLeftOutlined, DownOutlined, UpOutlined } from "@ant-design/icons";
+import { getDetailProgressMahasiswaApi } from "../../../components/api/progressmahasiswa";
 
-// ===== helpers =====
+const DONE_STATUSES = ["done", "selesai"];
+
 function Pill({ children, bg, color = "#E6ECFF" }) {
   return (
     <Tag
@@ -33,8 +38,8 @@ function Pill({ children, bg, color = "#E6ECFF" }) {
 }
 
 function initials(name = "") {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase()).join("");
+  const parts = String(name || "").trim().split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase()).join("") || "?";
 }
 
 function ProgressBar({ percent, tone = "green" }) {
@@ -42,8 +47,8 @@ function ProgressBar({ percent, tone = "green" }) {
     tone === "green"
       ? "rgba(0,201,167,0.95)"
       : tone === "yellow"
-      ? "rgba(255,193,7,0.95)"
-      : "rgba(255,82,82,0.95)";
+        ? "rgba(255,193,7,0.95)"
+        : "rgba(255,82,82,0.95)";
 
   return (
     <div
@@ -56,13 +61,24 @@ function ProgressBar({ percent, tone = "green" }) {
       }}
     >
       <div
-        style={{ height: "100%", width: `${percent}%`, background: color }}
+        style={{
+          height: "100%",
+          width: `${percent}%`,
+          background: color,
+        }}
       />
     </div>
   );
 }
 
+function normalizeStatus(status) {
+  const normalized = String(status || "not done").toLowerCase();
+  return DONE_STATUSES.includes(normalized) ? "complete" : "incomplete";
+}
+
 function StatusPill({ status }) {
+  const normalized = normalizeStatus(status);
+
   const map = {
     complete: {
       label: "COMPLETE",
@@ -75,7 +91,12 @@ function StatusPill({ status }) {
       color: "#FFC7C7",
     },
   };
-  const cfg = map[status] || { label: status, bg: "rgba(255,255,255,0.10)" };
+
+  const cfg = map[normalized] || {
+    label: status,
+    bg: "rgba(255,255,255,0.10)",
+  };
+
   return (
     <Pill bg={cfg.bg} color={cfg.color}>
       {cfg.label}
@@ -83,7 +104,24 @@ function StatusPill({ status }) {
   );
 }
 
-function ItemRow({ icon, label, status }) {
+function itemIcon(type) {
+  if (type === "materi") return "📘";
+  if (type === "quiz") return "🧾";
+  if (type === "puzzle") return "🧩";
+  return "📌";
+}
+
+function ItemRow({ item }) {
+  const meta = [];
+
+  if (item.type === "quiz" && item.score !== null && item.score !== undefined) {
+    meta.push(`Score: ${item.score}`);
+  }
+
+  if (item.waktu !== null && item.waktu !== undefined) {
+    meta.push(`Waktu: ${item.waktu}s`);
+  }
+
   return (
     <div
       style={{
@@ -98,37 +136,56 @@ function ItemRow({ icon, label, status }) {
       }}
     >
       <div
-        style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          minWidth: 0,
+        }}
       >
-        <span style={{ opacity: 0.8 }}>{icon}</span>
-        <Typography.Text style={{ color: "rgba(230,236,255,0.86)" }}>
-          {label}
-        </Typography.Text>
+        <span style={{ opacity: 0.8 }}>{itemIcon(item.type)}</span>
+
+        <div style={{ minWidth: 0 }}>
+          <Typography.Text style={{ color: "rgba(230,236,255,0.86)" }}>
+            {item.type?.toUpperCase?.() || "ITEM"}: {item.title || "-"}
+          </Typography.Text>
+
+          {meta.length > 0 && (
+            <Typography.Text
+              type="secondary"
+              style={{ display: "block", fontSize: 11 }}
+            >
+              {meta.join(" • ")}
+            </Typography.Text>
+          )}
+        </div>
       </div>
-      <StatusPill status={status} />
+
+      <StatusPill status={item.status} />
     </div>
   );
 }
 
 function ModuleCard({ m, open, onToggle }) {
   const locked = !!m.locked;
+  const percent = Number(m.percent || 0);
 
   const tone = locked
     ? "locked"
-    : m.percent >= 90
-    ? "green"
-    : m.percent >= 60
-    ? "yellow"
-    : "red";
+    : percent >= 90
+      ? "green"
+      : percent >= 60
+        ? "yellow"
+        : "red";
 
   const percentColor =
     tone === "green"
       ? "rgba(0,201,167,0.95)"
       : tone === "yellow"
-      ? "rgba(255,193,7,0.95)"
-      : tone === "locked"
-      ? "rgba(255,255,255,0.25)"
-      : "rgba(255,82,82,0.95)";
+        ? "rgba(255,193,7,0.95)"
+        : tone === "locked"
+          ? "rgba(255,255,255,0.25)"
+          : "rgba(255,82,82,0.95)";
 
   return (
     <div
@@ -151,13 +208,14 @@ function ModuleCard({ m, open, onToggle }) {
       >
         <div style={{ minWidth: 0 }}>
           <Typography.Text style={{ color: "#E6ECFF", fontWeight: 900 }}>
-            {m.title}
+            Modul {m.level || m.id_modul}: {m.title}
           </Typography.Text>
+
           <Typography.Text
             type="secondary"
             style={{ display: "block", fontSize: 12 }}
           >
-            {m.subtitle}
+            {m.subtitle} • {m.done_items || 0}/{m.total_items || 0} aktivitas
           </Typography.Text>
         </div>
 
@@ -175,7 +233,7 @@ function ModuleCard({ m, open, onToggle }) {
             </Pill>
           ) : (
             <Typography.Text style={{ color: percentColor, fontWeight: 900 }}>
-              {m.percent}%
+              {percent}%
             </Typography.Text>
           )}
 
@@ -194,7 +252,6 @@ function ModuleCard({ m, open, onToggle }) {
         </div>
       </div>
 
-      {/* progress */}
       <div style={{ marginTop: 10 }}>
         <div
           style={{
@@ -208,14 +265,13 @@ function ModuleCard({ m, open, onToggle }) {
           <div
             style={{
               height: "100%",
-              width: `${locked ? 100 : m.percent}%`,
+              width: `${locked ? 100 : percent}%`,
               background: locked ? "rgba(255,255,255,0.10)" : percentColor,
             }}
           />
         </div>
       </div>
 
-      {/* expand content */}
       {open && !locked && (
         <div
           style={{
@@ -225,18 +281,21 @@ function ModuleCard({ m, open, onToggle }) {
             gap: 10,
           }}
         >
-          {m.items.map((it, idx) => (
-            <ItemRow
-              key={idx}
-              icon={it.icon}
-              label={it.label}
-              status={it.status}
-            />
-          ))}
+          {(m.items || []).length > 0 ? (
+            m.items.map((item, idx) => (
+              <ItemRow
+                key={`${item.type}-${item.id}-${idx}`}
+                item={item}
+              />
+            ))
+          ) : (
+            <Typography.Text type="secondary">
+              Belum ada aktivitas pada modul ini.
+            </Typography.Text>
+          )}
         </div>
       )}
 
-      {/* overlay locked */}
       {locked && (
         <div
           style={{
@@ -252,117 +311,117 @@ function ModuleCard({ m, open, onToggle }) {
   );
 }
 
-/**
- * Fullscreen modal - Detail Progress Mahasiswa
- * Props:
- * open: boolean
- * onClose: fn
- * student?: { name, nim, kelas, statusText }
- */
 export default function DetailProgressMahasiswaModal({
   open,
   onClose,
   student,
 }) {
   const [filter, setFilter] = useState("all");
-  const [openMap, setOpenMap] = useState({ 3: true });
+  const [openMap, setOpenMap] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [detail, setDetail] = useState(null);
 
-  const data = useMemo(() => {
-    const s = student || {
-      name: "Andi Saputra",
-      nim: "23010045",
-      kelas: "Kelas TI-1A",
-      statusText: "Active Student",
+  const idUser = student?.id_user || student?.id;
+
+  useEffect(() => {
+    if (!open || !idUser) return;
+
+    let mounted = true;
+
+    const fetchDetail = async () => {
+      setLoading(true);
+
+      const response = await getDetailProgressMahasiswaApi(idUser);
+
+      if (!mounted) return;
+
+      if (
+        response.status >= 200 &&
+        response.status < 300 &&
+        response.data?.success !== false
+      ) {
+        const payload = response.data?.data || null;
+        setDetail(payload);
+
+        const firstProgress = (payload?.modules || []).find(
+          (item) => !item.locked && Number(item.percent || 0) < 100,
+        );
+
+        const firstDone = (payload?.modules || []).find((item) => !item.locked);
+
+        const defaultOpen =
+          firstProgress?.id_modul ||
+          firstProgress?.id ||
+          firstDone?.id_modul ||
+          firstDone?.id;
+
+        setOpenMap(defaultOpen ? { [defaultOpen]: true } : {});
+      } else {
+        message.error(
+          response.data?.message || "Gagal mengambil detail progress mahasiswa.",
+        );
+        setDetail(null);
+      }
+
+      setLoading(false);
     };
 
-    const modules = [
-      {
-        id: 1,
-        title: "Modul 1: Pengenalan Algoritma",
-        subtitle: "Selesai pada 12 Okt 2023",
-        percent: 100,
-        items: [
-          {
-            icon: "📘",
-            label: "Materi: Pengantar Algoritma",
-            status: "complete",
-          },
-          { icon: "🧾", label: "Kuis: Logika Dasar", status: "complete" },
-          { icon: "🧩", label: "Puzzle: Flowchart Intro", status: "complete" },
-        ],
-      },
-      {
-        id: 2,
-        title: "Modul 2: Variabel & Tipe Data",
-        subtitle: "Selesai pada 15 Okt 2023",
-        percent: 100,
-        items: [
-          { icon: "📘", label: "Materi: Variabel", status: "complete" },
-          { icon: "📘", label: "Materi: Tipe Data", status: "complete" },
-          { icon: "🧾", label: "Kuis: Variabel Python", status: "complete" },
-        ],
-      },
-      {
-        id: 3,
-        title: "Modul 3: Operator & Logika",
-        subtitle: "Update terakhir 5 menit lalu",
-        percent: 66,
-        items: [
-          {
-            icon: "📘",
-            label: "Materi: Operator Aritmatika",
-            status: "complete",
-          },
-          {
-            icon: "📘",
-            label: "Materi: Operator Logika & Perbandingan",
-            status: "complete",
-          },
-          { icon: "🧾", label: "Kuis: Perhitungan Dasar", status: "complete" },
-          { icon: "🧾", label: "Kuis: Tabel Kebenaran", status: "complete" },
-          {
-            icon: "🧾",
-            label: "Kuis: Studi Kasus Logika",
-            status: "incomplete",
-          },
-          {
-            icon: "🧩",
-            label: "Puzzle: Logic Block Stacking",
-            status: "incomplete",
-          },
-        ],
-      },
-      {
-        id: 4,
-        title: "Modul 4: Percabangan (Branching)",
-        subtitle: "Terkunci",
-        percent: 0,
-        locked: true,
-        items: [
-          { icon: "📘", label: "Materi: If-Else", status: "incomplete" },
-          { icon: "🧾", label: "Kuis: Branching Dasar", status: "incomplete" },
-        ],
-      },
-    ];
+    fetchDetail();
 
-    const done = modules.filter((m) => m.percent >= 100).length;
+    return () => {
+      mounted = false;
+    };
+  }, [open, idUser]);
+
+  const data = useMemo(() => {
+    const fallbackStudent = student || {
+      name: "Mahasiswa",
+      nim: "-",
+      kelas: "-",
+    };
+
+    if (!detail) {
+      return {
+        student: fallbackStudent,
+        level: Number(fallbackStudent.level || 1),
+        levelProgress: 0,
+        doneText: "0/0 Selesai",
+        modules: [],
+      };
+    }
+
+    const s = detail.student || fallbackStudent;
+    const summary = detail.summary || {};
 
     return {
       student: s,
-      level: 5,
-      levelProgress: 75,
-      doneText: `${done}/${modules.length} Selesai`,
-      modules,
+      level: Number(s.level || 1),
+      levelProgress: Number(summary.overall_percent || 0),
+      doneText:
+        summary.done_text ||
+        `${summary.done_modules || 0}/${summary.total_modules || 0} Selesai`,
+      modules: detail.modules || [],
     };
-  }, [student]);
+  }, [detail, student]);
 
   const visibleModules = useMemo(() => {
-    if (filter === "complete")
-      return data.modules.filter((m) => m.percent === 100);
-    if (filter === "progress")
-      return data.modules.filter((m) => m.percent > 0 && m.percent < 100);
-    if (filter === "incomplete")
-      return data.modules.filter((m) => m.percent === 0);
+    if (filter === "complete") {
+      return data.modules.filter((m) => Number(m.percent || 0) >= 100);
+    }
+
+    if (filter === "progress") {
+      return data.modules.filter(
+        (m) =>
+          !m.locked &&
+          Number(m.percent || 0) > 0 &&
+          Number(m.percent || 0) < 100,
+      );
+    }
+
+    if (filter === "incomplete") {
+      return data.modules.filter((m) => m.locked || Number(m.percent || 0) === 0);
+    }
+
     return data.modules;
   }, [filter, data.modules]);
 
@@ -384,7 +443,6 @@ export default function DetailProgressMahasiswaModal({
         mask: { background: "rgba(0,0,0,0.65)" },
       }}
     >
-      {/* Top bar */}
       <div
         style={{
           height: 62,
@@ -407,13 +465,8 @@ export default function DetailProgressMahasiswaModal({
           >
             Kembali
           </Button>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              lineHeight: 1.1,
-            }}
-          >
+
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
             <Typography.Text style={{ color: "#E6ECFF", fontWeight: 900 }}>
               Detail Progres Mahasiswa
             </Typography.Text>
@@ -436,165 +489,184 @@ export default function DetailProgressMahasiswaModal({
         />
       </div>
 
-      {/* Content */}
       <div
-        style={{ height: "calc(100vh - 62px)", overflow: "auto", padding: 18 }}
+        style={{
+          height: "calc(100vh - 62px)",
+          overflow: "auto",
+          padding: 18,
+        }}
       >
-        {/* TOP ROW: profil kiri + level kanan */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 320px",
-            gap: 14,
-            marginBottom: 14,
-            alignItems: "stretch",
-          }}
-        >
-          {/* Profil kiri */}
-          <Card
+        <Spin spinning={loading}>
+          <div
             style={{
-              borderRadius: 18,
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.06)",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) 320px",
+              gap: 14,
+              marginBottom: 14,
+              alignItems: "stretch",
             }}
-            bodyStyle={{ padding: 18 }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <Avatar
-                size={54}
+            <Card
+              style={{
+                borderRadius: 18,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
+              bodyStyle={{ padding: 18 }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <Avatar
+                  size={54}
+                  style={{
+                    background: "rgba(58,123,255,0.18)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    color: "#E6ECFF",
+                    fontWeight: 900,
+                  }}
+                >
+                  {initials(data.student.name)}
+                </Avatar>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Typography.Title
+                    level={4}
+                    style={{ margin: 0, color: "#E6ECFF" }}
+                  >
+                    {data.student.name}
+                  </Typography.Title>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {data.student.nim || "-"} • {data.student.kelas || "-"}
+                  </Typography.Text>
+                </div>
+
+                <div style={{ opacity: 0.22, fontSize: 54, paddingRight: 6 }}>
+                  👤
+                </div>
+              </div>
+            </Card>
+
+            <Card
+              style={{
+                borderRadius: 18,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
+              bodyStyle={{ padding: 18 }}
+            >
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Progress Keseluruhan
+              </Typography.Text>
+
+              <Typography.Title
+                level={2}
+                style={{ margin: "6px 0 10px", color: "#E6ECFF" }}
+              >
+                {data.levelProgress}%
+              </Typography.Title>
+
+              <div
                 style={{
-                  background: "rgba(58,123,255,0.18)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  color: "#E6ECFF",
-                  fontWeight: 900,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
                 }}
               >
-                {initials(data.student.name)}
-              </Avatar>
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <Typography.Title
-                  level={4}
-                  style={{ margin: 0, color: "#E6ECFF" }}
-                >
-                  {data.student.name}
-                </Typography.Title>
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  Detail progres pembelajaran mahasiswa
+                  Lvl. {data.level}
+                </Typography.Text>
+
+                <Typography.Text
+                  style={{ color: "rgba(230,236,255,0.75)", fontSize: 12 }}
+                >
+                  {data.doneText}
                 </Typography.Text>
               </div>
 
-              <div style={{ opacity: 0.22, fontSize: 54, paddingRight: 6 }}>
-                👤
-              </div>
-            </div>
-          </Card>
+              <ProgressBar
+                percent={data.levelProgress}
+                tone={
+                  data.levelProgress >= 65
+                    ? "green"
+                    : data.levelProgress >= 40
+                      ? "yellow"
+                      : "red"
+                }
+              />
+            </Card>
+          </div>
 
-          {/* Level kanan */}
           <Card
             style={{
               borderRadius: 18,
               background: "rgba(255,255,255,0.04)",
               border: "1px solid rgba(255,255,255,0.06)",
             }}
-            bodyStyle={{ padding: 18 }}
+            bodyStyle={{ padding: 0 }}
           >
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              Level Saat Ini
-            </Typography.Text>
-            <Typography.Title
-              level={2}
-              style={{ margin: "6px 0 10px", color: "#E6ECFF" }}
-            >
-              Lvl. {data.level}
-            </Typography.Title>
-
             <div
               style={{
+                padding: "14px 16px",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                marginBottom: 8,
+                gap: 12,
               }}
             >
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                Progress Level {data.level + 1}
-              </Typography.Text>
-              <Typography.Text
-                style={{ color: "rgba(230,236,255,0.75)", fontSize: 12 }}
-              >
-                {data.levelProgress}%
-              </Typography.Text>
+              <Space>
+                <span
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 8,
+                    display: "grid",
+                    placeItems: "center",
+                    background: "rgba(124,92,255,0.18)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                  }}
+                >
+                  📌
+                </span>
+
+                <Typography.Text style={{ color: "#E6ECFF", fontWeight: 900 }}>
+                  Riwayat Progres Modul
+                </Typography.Text>
+              </Space>
+
+              <Pill bg="rgba(255,255,255,0.06)" color="rgba(230,236,255,0.7)">
+                {data.doneText}
+              </Pill>
             </div>
 
-            <ProgressBar percent={data.levelProgress} tone="green" />
+            <div
+              style={{
+                padding: 16,
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+              }}
+            >
+              {visibleModules.length > 0 ? (
+                visibleModules.map((m) => (
+                  <ModuleCard
+                    key={m.id_modul || m.id}
+                    m={m}
+                    open={!!openMap[m.id_modul || m.id]}
+                    onToggle={() =>
+                      setOpenMap((prev) => ({
+                        ...prev,
+                        [m.id_modul || m.id]: !prev[m.id_modul || m.id],
+                      }))
+                    }
+                  />
+                ))
+              ) : (
+                <Empty description="Data progress belum tersedia" />
+              )}
+            </div>
           </Card>
-        </div>
-
-        {/* BOTTOM: progres modul full width */}
-        <Card
-          style={{
-            borderRadius: 18,
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.06)",
-          }}
-          bodyStyle={{ padding: 0 }}
-        >
-          {/* header progres */}
-          <div
-            style={{
-              padding: "14px 16px",
-              borderBottom: "1px solid rgba(255,255,255,0.06)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
-            <Space>
-              <span
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: 8,
-                  display: "grid",
-                  placeItems: "center",
-                  background: "rgba(124,92,255,0.18)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                }}
-              >
-                📌
-              </span>
-              <Typography.Text style={{ color: "#E6ECFF", fontWeight: 900 }}>
-                Riwayat Progres Modul
-              </Typography.Text>
-            </Space>
-
-            <Pill bg="rgba(255,255,255,0.06)" color="rgba(230,236,255,0.7)">
-              {data.doneText}
-            </Pill>
-          </div>
-
-          <div
-            style={{
-              padding: 16,
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-            }}
-          >
-            {visibleModules.map((m) => (
-              <ModuleCard
-                key={m.id}
-                m={m}
-                open={!!openMap[m.id]}
-                onToggle={() =>
-                  setOpenMap((prev) => ({ ...prev, [m.id]: !prev[m.id] }))
-                }
-              />
-            ))}
-          </div>
-        </Card>
+        </Spin>
       </div>
     </Modal>
   );

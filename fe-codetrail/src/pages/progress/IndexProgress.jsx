@@ -19,114 +19,32 @@ import {
 } from "@ant-design/icons";
 import TableList from "../../components/global/TableList.jsx";
 import DetailProgressMahasiswaModal from "./component/DetailProgress.jsx";
+import { getProgressMahasiswaApi } from "../../components/api/progressmahasiswa.jsx";
 
-// ====== DEMO GET DATA (ganti ke API kamu) ======
-async function getProgressMahasiswa(param) {
-  const params = new URLSearchParams(param);
-
-  const q = (params.get("q") || "").toLowerCase();
-  const kelas = (params.get("kelas") || "").toLowerCase();
-  const sort = (params.get("sort") || "desc").toLowerCase(); // desc | asc
-
-  const all = [
-    {
-      id: 1,
-      name: "Andi Saputra",
-      nim: "23010045",
-      kelas: "Kelas A",
-      done: 10,
-      total: 12,
-    },
-    {
-      id: 2,
-      name: "Citra Wijaya",
-      nim: "23010052",
-      kelas: "Kelas A",
-      done: 9,
-      total: 12,
-    },
-    {
-      id: 3,
-      name: "Budi Prakoso",
-      nim: "23010018",
-      kelas: "Kelas B",
-      done: 7,
-      total: 12,
-    },
-    {
-      id: 4,
-      name: "Dian Arista",
-      nim: "23020022",
-      kelas: "Kelas B",
-      done: 5,
-      total: 12,
-    },
-    {
-      id: 5,
-      name: "Fajar Hidayat",
-      nim: "23010033",
-      kelas: "Kelas A",
-      done: 4,
-      total: 12,
-    },
-  ];
-
-  // filter + search
-  let filtered = all.filter((x) => {
-    const passQ =
-      !q || x.name.toLowerCase().includes(q) || x.nim.toLowerCase().includes(q);
-
-    const passKelas = !kelas || x.kelas.toLowerCase() === kelas;
-
-    return passQ && passKelas;
-  });
-
-  // sort by percent
-  filtered = [...filtered].sort((a, b) => {
-    const pa = Math.round((a.done / a.total) * 100);
-    const pb = Math.round((b.done / b.total) * 100);
-    return sort === "asc" ? pa - pb : pb - pa;
-  });
-
-  // pagination dummy
-  const page = Number(params.get("page") || 1);
-  const limit = Number(params.get("limit") || 10);
-  const total = filtered.length;
-
-  const start = (page - 1) * limit;
-  const end = start + limit;
-
-  return {
-    data: {
-      data: filtered.slice(start, end),
-      total,
-      paging: {
-        page,
-        limit,
-        total,
-        page_total: Math.max(1, Math.ceil(total / limit)),
-      },
-    },
-    status: 200,
-  };
-}
-
-// ====== UI helpers ======
 function initials(name = "") {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase()).join("");
+  const parts = String(name || "").trim().split(/\s+/).slice(0, 2);
+  return parts.map((p) => p[0]?.toUpperCase()).join("") || "?";
 }
 
 function barColor(percent) {
-  if (percent >= 80) return "rgb(124,92,255)"; // ungu
-  if (percent >= 65) return "rgb(0,201,167)"; // hijau
-  if (percent >= 50) return "rgb(255,193,7)"; // kuning
-  return "rgb(255,82,82)"; // merah
+  if (percent >= 80) return "rgb(124,92,255)";
+  if (percent >= 65) return "rgb(0,201,167)";
+  if (percent >= 50) return "rgb(255,193,7)";
+  return "rgb(255,82,82)";
+}
+
+function getPercent(row) {
+  const direct = Number(row?.percent ?? row?.progress_percent);
+  if (!Number.isNaN(direct)) return Math.max(0, Math.min(100, direct));
+
+  const done = Number(row?.done || 0);
+  const total = Number(row?.total || 0);
+  if (total <= 0) return 0;
+  return Math.round((done / total) * 100);
 }
 
 export default function ProgressMahasiswa() {
   const [trigger, setTrigger] = useState(0);
-
   const [q, setQ] = useState("");
   const [kelas, setKelas] = useState("");
   const [openDetail, setOpenDetail] = useState(false);
@@ -158,10 +76,11 @@ export default function ProgressMahasiswa() {
               <Typography.Text
                 style={{ color: "#E6ECFF", fontWeight: 800, display: "block" }}
               >
-                {row.name}
+                {row.name || "-"}
               </Typography.Text>
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                {row.nim}
+                {row.nim || "-"}{" "}
+                {row.kelas && row.kelas !== "-" ? `• ${row.kelas}` : ""}
               </Typography.Text>
             </div>
           </div>
@@ -171,8 +90,10 @@ export default function ProgressMahasiswa() {
         title: "PROGRESS KESELURUHAN",
         key: "progress",
         render: (_, row) => {
-          const percent = Math.round((row.done / row.total) * 100);
+          const percent = getPercent(row);
           const stroke = barColor(percent);
+          const done = Number(row.done || row.done_modul || 0);
+          const total = Number(row.total || row.total_modul || 0);
 
           return (
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -184,7 +105,7 @@ export default function ProgressMahasiswa() {
                     fontWeight: 700,
                   }}
                 >
-                  {row.done}/{row.total} Modul Selesai
+                  {done}/{total} Modul Selesai
                 </Typography.Text>
 
                 <Progress
@@ -214,7 +135,7 @@ export default function ProgressMahasiswa() {
         render: (_, row) => {
           const items = [
             {
-              key: `detail-${row.id ?? row.nim ?? row.key ?? ""}`,
+              key: `detail-${row.id_user ?? row.id ?? row.nim ?? ""}`,
               label: "Lihat Detail",
               onClick: () => {
                 setSelectedStudent(row);
@@ -240,7 +161,7 @@ export default function ProgressMahasiswa() {
         },
       },
     ],
-    []
+    [],
   );
 
   const mobile = useMemo(
@@ -251,20 +172,70 @@ export default function ProgressMahasiswa() {
       r5: { text: "Done", name: "done" },
       r6: { text: "Total", name: "total" },
       actionLabel: "Detail",
-      action: (item) => console.log("detail mobile", item),
+      action: (item) => {
+        setSelectedStudent(item);
+        setOpenDetail(true);
+      },
     }),
-    []
+    [],
   );
+
+  const handleExportCsv = async () => {
+    const params = new URLSearchParams({
+      q,
+      kelas,
+      sort,
+      page: "1",
+      limit: "9999",
+    });
+
+    const response = await getProgressMahasiswaApi(params);
+    const rows = response?.data?.data || [];
+
+    const header = [
+      "Nama",
+      "NIM",
+      "Kelas",
+      "Modul Selesai",
+      "Total Modul",
+      "Persen",
+    ];
+
+    const body = rows.map((row) => [
+      row.name || "-",
+      row.nim || "-",
+      row.kelas || "-",
+      row.done || 0,
+      row.total || 0,
+      `${getPercent(row)}%`,
+    ]);
+
+    const csv = [header, ...body]
+      .map((line) =>
+        line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = "progress-mahasiswa.csv";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Header */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
+          flexWrap: "wrap",
         }}
       >
         <div>
@@ -276,7 +247,7 @@ export default function ProgressMahasiswa() {
           </Typography.Text>
         </div>
 
-        <Space>
+        <Space wrap>
           <Input
             allowClear
             value={q}
@@ -285,7 +256,7 @@ export default function ProgressMahasiswa() {
             prefix={
               <SearchOutlined style={{ color: "rgba(255,255,255,0.45)" }} />
             }
-            placeholder="Cari nama mahasiswa..."
+            placeholder="Cari nama / NIM mahasiswa..."
             style={{ width: 280, borderRadius: 14 }}
           />
 
@@ -297,14 +268,13 @@ export default function ProgressMahasiswa() {
               border: "1px solid rgba(255,255,255,0.08)",
               color: "rgba(230,236,255,0.88)",
             }}
-            onClick={() => console.log("export")}
+            onClick={handleExportCsv}
           >
             Export Data
           </Button>
         </Space>
       </div>
 
-      {/* Filters row */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <Select
           value={kelas || undefined}
@@ -323,6 +293,8 @@ export default function ProgressMahasiswa() {
           options={[
             { label: "Kelas A", value: "Kelas A" },
             { label: "Kelas B", value: "Kelas B" },
+            { label: "Kelas TI-1A", value: "Kelas TI-1A" },
+            { label: "Kelas TI-1B", value: "Kelas TI-1B" },
           ]}
         />
 
@@ -332,18 +304,30 @@ export default function ProgressMahasiswa() {
             setSort(v);
             setTrigger((x) => x + 1);
           }}
-          style={{ minWidth: 170, borderRadius: 14 }}
+          style={{ minWidth: 190, borderRadius: 14 }}
           options={[
-            { label: "Terkecil → Terbesar", value: "asc" },
-            { label: "Terbesar → Terkecil", value: "desc" },
+            { label: "Progress Terkecil", value: "asc" },
+            { label: "Progress Terbesar", value: "desc" },
           ]}
           suffixIcon={
             <SortAscendingOutlined style={{ color: "rgba(230,236,255,0.6)" }} />
           }
         />
+
+        <Button
+          onClick={() => setTrigger((x) => x + 1)}
+          style={{
+            borderRadius: 14,
+            background: "rgba(124,92,255,0.16)",
+            border: "1px solid rgba(124,92,255,0.35)",
+            color: "#E6ECFF",
+            fontWeight: 700,
+          }}
+        >
+          Terapkan
+        </Button>
       </div>
 
-      {/* Table */}
       <Card
         style={{
           borderRadius: 16,
@@ -353,7 +337,7 @@ export default function ProgressMahasiswa() {
         bodyStyle={{ padding: 16 }}
       >
         <TableList
-          getData={getProgressMahasiswa}
+          getData={getProgressMahasiswaApi}
           queryParams={queryParams}
           columns={columns}
           trigger={trigger}
