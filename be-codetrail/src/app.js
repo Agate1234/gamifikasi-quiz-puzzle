@@ -19,6 +19,9 @@ const achievementRoutes = require("./routes/achievementRoutes");
 const levelRoutes = require("./routes/levelRoutes");
 const leaderboardRoutes = require("./routes/leaderboardRoutes");
 const codeRunnerRoutes = require("./routes/codeRunnerRoutes");
+const adminProgressMahasiswaRoutes = require("./routes/progressMahasiswaRoutes");
+const hasilMahasiswaRoutes = require("./routes/hasilMahasiswaRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 
 const app = express();
 
@@ -51,5 +54,8 @@ app.use("/api/achievement", achievementRoutes);
 app.use("/api/level", levelRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/code-runner", codeRunnerRoutes);
+app.use("/api/progress-mahasiswa", adminProgressMahasiswaRoutes);
+app.use("/api/hasil-mahasiswa", hasilMahasiswaRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 module.exports = app;
