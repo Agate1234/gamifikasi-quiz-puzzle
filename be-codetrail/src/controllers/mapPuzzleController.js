@@ -21,6 +21,8 @@ const getAllProgressPuzzle = async (req, res) => {
         pp.status,
         pp.attempt,
         pp.waktu,
+        pp.jawaban,
+        pp.hasil,
         pp.created_at,
         pp.updated_at
       FROM progress_puzzle pp
@@ -67,23 +69,23 @@ const getProgressPuzzleById = async (req, res) => {
 
     let query = `
       SELECT
-      pp.id_progress_puzzle,
-      pp.id_user,
-      pp.id_puzzle,
-      p.id_modul,
-      p.judul_puzzle,
-      p.deskripsi_puzzle,
-      p.tipe_puzzle,
-      p.difficulty_puzzle,
-      p.exp_puzzle,
-      pp.is_unlock,
-      pp.status,
-      pp.attempt,
-      pp.waktu,
-      pp.jawaban,
-      pp.hasil,
-      pp.created_at,
-      pp.updated_at,
+        pp.id_progress_puzzle,
+        pp.id_user,
+        pp.id_puzzle,
+        p.id_modul,
+        p.judul_puzzle,
+        p.deskripsi_puzzle,
+        p.tipe_puzzle,
+        p.difficulty_puzzle,
+        p.exp_puzzle,
+        pp.is_unlock,
+        pp.status,
+        pp.attempt,
+        pp.waktu,
+        pp.jawaban,
+        pp.hasil,
+        pp.created_at,
+        pp.updated_at,
 
         dd.id_drag_drop,
         dd.instruksi AS drag_instruksi,
@@ -196,6 +198,87 @@ const getProgressPuzzleById = async (req, res) => {
   }
 };
 
+const saveProgressPuzzle = async (req, res) => {
+  try {
+    const { id_progress_puzzle } = req.params;
+    const { waktu = 0, jawaban = null, hasil = null } = req.body;
+
+    const normalizedWaktu = Math.max(0, parseInt(waktu, 10) || 0);
+
+    const currentResult = await pool.query(
+      `
+      SELECT
+        id_progress_puzzle,
+        status,
+        waktu,
+        jawaban,
+        hasil
+      FROM progress_puzzle
+      WHERE id_progress_puzzle = $1
+      LIMIT 1
+      `,
+      [id_progress_puzzle],
+    );
+
+    if (currentResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Progress puzzle tidak ditemukan",
+      });
+    }
+
+    const current = currentResult.rows[0];
+
+    if (current.status === "done") {
+      return res.status(200).json({
+        success: true,
+        message: "Puzzle sudah selesai, progress tidak diubah.",
+        data: current,
+      });
+    }
+
+    const updateResult = await pool.query(
+      `
+      UPDATE progress_puzzle
+      SET
+        status = CASE
+          WHEN status = 'done' THEN 'done'
+          ELSE 'progress'
+        END,
+        waktu = GREATEST(COALESCE(waktu, 0), $1),
+        jawaban = CASE
+          WHEN $2::jsonb IS NOT NULL THEN $2::jsonb
+          ELSE jawaban
+        END,
+        hasil = CASE
+          WHEN $3::jsonb IS NOT NULL THEN $3::jsonb
+          ELSE hasil
+        END,
+        updated_at = NOW()
+      WHERE id_progress_puzzle = $4
+      RETURNING *
+      `,
+      [
+        normalizedWaktu,
+        jawaban ? JSON.stringify(jawaban) : null,
+        hasil ? JSON.stringify(hasil) : null,
+        id_progress_puzzle,
+      ],
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Progress puzzle berhasil disimpan.",
+      data: updateResult.rows[0],
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 const updateProgressPuzzleAttempt = async (req, res) => {
   const client = await pool.connect();
 
@@ -210,20 +293,19 @@ const updateProgressPuzzleAttempt = async (req, res) => {
 
     await client.query("BEGIN");
 
-    // 1. Ambil progress puzzle saat ini
     const currentResult = await client.query(
       `
-  SELECT
-    pp.id_progress_puzzle,
-    pp.id_user,
-    pp.id_puzzle,
-    pp.status,
-    p.id_modul,
-    COALESCE(p.exp_puzzle, 0)::int AS exp_puzzle
-  FROM progress_puzzle pp
-  INNER JOIN puzzle p ON pp.id_puzzle = p.id_puzzle
-  WHERE pp.id_progress_puzzle = $1
-  `,
+      SELECT
+        pp.id_progress_puzzle,
+        pp.id_user,
+        pp.id_puzzle,
+        pp.status,
+        p.id_modul,
+        COALESCE(p.exp_puzzle, 0)::int AS exp_puzzle
+      FROM progress_puzzle pp
+      INNER JOIN puzzle p ON pp.id_puzzle = p.id_puzzle
+      WHERE pp.id_progress_puzzle = $1
+      `,
       [id_progress_puzzle],
     );
 
@@ -238,32 +320,31 @@ const updateProgressPuzzleAttempt = async (req, res) => {
 
     const current = currentResult.rows[0];
 
-    // 2. Update attempt puzzle saat ini
     const updateCurrentResult = await client.query(
       `
-  UPDATE progress_puzzle
-  SET
-    attempt = attempt + 1,
-    status = CASE
-      WHEN $2 = true THEN 'done'
-      ELSE status
-    END,
-    waktu = CASE
-      WHEN $3::int IS NOT NULL THEN $3::int
-      ELSE waktu
-    END,
-    jawaban = CASE
-      WHEN $4::jsonb IS NOT NULL THEN $4::jsonb
-      ELSE jawaban
-    END,
-    hasil = CASE
-      WHEN $5::jsonb IS NOT NULL THEN $5::jsonb
-      ELSE hasil
-    END,
-    updated_at = NOW()
-  WHERE id_progress_puzzle = $1
-  RETURNING *
-  `,
+      UPDATE progress_puzzle
+      SET
+        attempt = attempt + 1,
+        status = CASE
+          WHEN $2 = true THEN 'done'
+          ELSE 'progress'
+        END,
+        waktu = CASE
+          WHEN $3::int IS NOT NULL THEN $3::int
+          ELSE waktu
+        END,
+        jawaban = CASE
+          WHEN $4::jsonb IS NOT NULL THEN $4::jsonb
+          ELSE jawaban
+        END,
+        hasil = CASE
+          WHEN $5::jsonb IS NOT NULL THEN $5::jsonb
+          ELSE hasil
+        END,
+        updated_at = NOW()
+      WHERE id_progress_puzzle = $1
+      RETURNING *
+      `,
       [
         id_progress_puzzle,
         is_done,
@@ -275,7 +356,6 @@ const updateProgressPuzzleAttempt = async (req, res) => {
 
     let nextUnlocked = null;
 
-    // 3. Kalau jawaban benar, unlock puzzle berikutnya
     if (is_done === true) {
       const nextResult = await client.query(
         `
@@ -358,5 +438,6 @@ const updateProgressPuzzleAttempt = async (req, res) => {
 module.exports = {
   getAllProgressPuzzle,
   getProgressPuzzleById,
+  saveProgressPuzzle,
   updateProgressPuzzleAttempt,
 };

@@ -13,34 +13,75 @@ const allowedGameRoles = [
   "hunter",
 ];
 
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 10;
+
 const normalizeText = (value) => {
   if (value === undefined || value === null) return "";
   return String(value).trim();
 };
 
+const toPositiveInt = (value, fallback) => {
+  const parsed = parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) return fallback;
+  return parsed;
+};
+
 const getAllUsers = async (req, res) => {
   try {
+    const { q = "", role = "" } = req.query;
+
+    const search = `%${String(q || "").trim()}%`;
+    const roleFilter = String(role || "").trim().toLowerCase();
+
     const result = await pool.query(
-      `SELECT 
-          u.id_user,
-          u.nama_user,
-          u.email,
-          u.no_badge,
-          u.id_role,
-          u.game_role,
-          u.level,
-          u.exp,
-          u.total_score,
-          r.nama_role,
-          r.kd_role
-       FROM users u
-       JOIN roles r ON u.id_role = r.id_role
-       ORDER BY u.id_user ASC`,
+      `
+      SELECT 
+        u.id_user AS id,
+        u.id_user,
+        u.nama_user AS name,
+        u.nama_user,
+        u.email,
+        u.no_badge,
+        u.id_role,
+        u.game_role,
+        u.level,
+        u.exp,
+        u.total_score,
+        r.nama_role AS role,
+        r.nama_role,
+        r.kd_role
+      FROM users u
+      JOIN roles r ON u.id_role = r.id_role
+      WHERE (
+        u.nama_user ILIKE $1
+        OR u.email ILIKE $1
+        OR CAST(u.id_user AS TEXT) ILIKE $1
+        OR r.nama_role ILIKE $1
+        OR r.kd_role ILIKE $1
+      )
+      AND (
+        $2 = ''
+        OR LOWER(r.nama_role) = $2
+        OR LOWER(r.kd_role) = $2
+      )
+      ORDER BY u.id_user ASC
+      `,
+      [search, roleFilter],
     );
+
+    const total = result.rows.length;
 
     return res.status(200).json({
       success: true,
+      message: "Berhasil mengambil semua data user",
       data: result.rows,
+      paging: {
+        page: 1,
+        limit: 10,
+        total,
+        page_total: Math.max(1, Math.ceil(total / 10)),
+      },
     });
   } catch (error) {
     return res.status(500).json({
@@ -55,21 +96,26 @@ const getUserById = async (req, res) => {
     const { id } = req.params;
 
     const result = await pool.query(
-      `SELECT 
-          u.id_user,
-          u.nama_user,
-          u.email,
-          u.no_badge,
-          u.id_role,
-          u.game_role,
-          u.level,
-          u.exp,
-          u.total_score,
-          r.nama_role,
-          r.kd_role
-       FROM users u
-       JOIN roles r ON u.id_role = r.id_role
-       WHERE u.id_user = $1`,
+      `
+      SELECT 
+        u.id_user AS id,
+        u.id_user,
+        u.nama_user AS name,
+        u.nama_user,
+        u.email,
+        u.no_badge,
+        u.id_role,
+        u.game_role,
+        u.level,
+        u.exp,
+        u.total_score,
+        r.nama_role AS role,
+        r.nama_role,
+        r.kd_role
+      FROM users u
+      JOIN roles r ON u.id_role = r.id_role
+      WHERE u.id_user = $1
+      `,
       [id],
     );
 
@@ -108,6 +154,13 @@ const createUser = async (req, res) => {
       });
     }
 
+    if (![2, 3].includes(Number(id_role))) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin hanya dapat menambahkan role Dosen atau Mahasiswa",
+      });
+    }
+
     const checkEmail = await client.query(
       "SELECT id_user FROM users WHERE LOWER(email) = LOWER($1)",
       [finalEmail],
@@ -125,21 +178,35 @@ const createUser = async (req, res) => {
     await client.query("BEGIN");
 
     const result = await client.query(
-      `INSERT INTO users (nama_user, email, password, no_badge, id_role, game_role)
-       VALUES ($1, $2, $3, $4::integer[], $5, NULL)
-       RETURNING 
-          id_user, 
-          nama_user, 
-          email, 
-          no_badge, 
-          id_role,
-          game_role`,
+      `
+      INSERT INTO users (
+        nama_user,
+        email,
+        password,
+        no_badge,
+        id_role,
+        game_role
+      )
+      VALUES ($1, $2, $3, $4::integer[], $5, NULL)
+      RETURNING 
+        id_user AS id,
+        id_user, 
+        nama_user AS name,
+        nama_user, 
+        email, 
+        no_badge, 
+        id_role,
+        game_role,
+        level,
+        exp,
+        total_score
+      `,
       [
         finalNama,
         finalEmail,
         hashedPassword,
         Array.isArray(no_badge) ? no_badge : [],
-        id_role,
+        Number(id_role),
       ],
     );
 
@@ -292,17 +359,19 @@ const updateUser = async (req, res) => {
     await client.query("BEGIN");
 
     const userCheck = await client.query(
-      `SELECT 
-          id_user,
-          nama_user,
-          email,
-          password,
-          no_badge,
-          id_role,
-          game_role
-       FROM users 
-       WHERE id_user = $1
-       FOR UPDATE`,
+      `
+      SELECT 
+        id_user,
+        nama_user,
+        email,
+        password,
+        no_badge,
+        id_role,
+        game_role
+      FROM users 
+      WHERE id_user = $1
+      FOR UPDATE
+      `,
       [id],
     );
 
@@ -323,10 +392,12 @@ const updateUser = async (req, res) => {
 
     if (finalEmailInput && finalEmailInput !== oldUser.email) {
       const emailCheck = await client.query(
-        `SELECT id_user 
-         FROM users 
-         WHERE LOWER(email) = LOWER($1) 
-           AND id_user <> $2`,
+        `
+        SELECT id_user 
+        FROM users 
+        WHERE LOWER(email) = LOWER($1) 
+          AND id_user <> $2
+        `,
         [finalEmailInput, id],
       );
 
@@ -359,7 +430,16 @@ const updateUser = async (req, res) => {
       ? no_badge
       : oldUser.no_badge || [];
 
-    const finalSystemRole = id_role || oldUser.id_role;
+    const finalSystemRole = id_role ? Number(id_role) : oldUser.id_role;
+
+    if (![2, 3].includes(Number(finalSystemRole))) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        success: false,
+        message: "Admin hanya dapat mengubah role menjadi Dosen atau Mahasiswa",
+      });
+    }
 
     let finalGameRole = oldUser.game_role;
 
@@ -388,25 +468,29 @@ const updateUser = async (req, res) => {
     }
 
     const result = await client.query(
-      `UPDATE users
-       SET nama_user = $1,
-           email = $2,
-           password = $3,
-           no_badge = $4::integer[],
-           id_role = $5,
-           game_role = $6,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id_user = $7
-       RETURNING 
-          id_user, 
-          nama_user, 
-          email, 
-          no_badge, 
-          id_role,
-          game_role,
-          level,
-          exp,
-          total_score`,
+      `
+      UPDATE users
+      SET nama_user = $1,
+          email = $2,
+          password = $3,
+          no_badge = $4::integer[],
+          id_role = $5,
+          game_role = $6,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id_user = $7
+      RETURNING 
+        id_user AS id,
+        id_user, 
+        nama_user AS name,
+        nama_user, 
+        email, 
+        no_badge, 
+        id_role,
+        game_role,
+        level,
+        exp,
+        total_score
+      `,
       [
         finalNama,
         finalEmail,
@@ -438,30 +522,47 @@ const updateUser = async (req, res) => {
 };
 
 const deleteUser = async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      "DELETE FROM users WHERE id_user = $1 RETURNING *",
+    const userCheck = await client.query(
+      "SELECT id_user FROM users WHERE id_user = $1",
       [id],
     );
 
-    if (result.rows.length === 0) {
+    if (userCheck.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: "User tidak ditemukan",
       });
     }
 
+    await client.query("BEGIN");
+
+    await client.query("DELETE FROM progress_materi WHERE id_user = $1", [id]);
+    await client.query("DELETE FROM progress_quiz WHERE id_user = $1", [id]);
+    await client.query("DELETE FROM progress_puzzle WHERE id_user = $1", [id]);
+    await client.query("DELETE FROM progress_modul WHERE id_user = $1", [id]);
+
+    await client.query("DELETE FROM users WHERE id_user = $1", [id]);
+
+    await client.query("COMMIT");
+
     return res.status(200).json({
       success: true,
       message: "User berhasil dihapus",
     });
   } catch (error) {
+    await client.query("ROLLBACK");
+
     return res.status(500).json({
       success: false,
       message: error.message,
     });
+  } finally {
+    client.release();
   }
 };
 

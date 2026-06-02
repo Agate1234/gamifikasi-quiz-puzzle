@@ -256,41 +256,99 @@ const getAdaptiveDifficulty = async (client, id_user, id_quiz) => {
     JOIN soal_quiz sq ON sq.id_soal = sd.id_soal
     WHERE sd.id_user = $1
       AND sd.id_quiz = $2
-    ORDER BY sd.created_at DESC, sd.id_soal_done DESC
+    ORDER BY sd.created_at ASC, sd.id_soal_done ASC
     `,
     [id_user, id_quiz],
   );
 
-  const history = historyResult.rows;
+  const history = historyResult.rows.map((item) => ({
+    is_right: item.is_right === true,
+    difficulty: String(item.difficulty || "easy").toLowerCase(),
+  }));
 
   if (history.length === 0) return "easy";
 
-  const lastDifficulty = history[0].difficulty;
-  const lastResult = history[0].is_right;
+  const currentDifficulty = history[history.length - 1]?.difficulty || "easy";
 
-  let streakOnSameDifficulty = 0;
+  const countLastStreak = (difficulty, expectedResult) => {
+    let count = 0;
 
-  for (const item of history) {
-    if (item.difficulty === lastDifficulty && item.is_right === lastResult) {
-      streakOnSameDifficulty += 1;
-    } else {
-      break;
+    for (let i = history.length - 1; i >= 0; i--) {
+      const item = history[i];
+
+      if (item.difficulty === difficulty && item.is_right === expectedResult) {
+        count += 1;
+      } else {
+        break;
+      }
     }
+
+    return count;
+  };
+
+  const hasEverHardCorrectStreakAtLeastFour = () => {
+    let hardCorrectStreak = 0;
+
+    for (const item of history) {
+      if (item.difficulty === "hard" && item.is_right === true) {
+        hardCorrectStreak += 1;
+
+        if (hardCorrectStreak >= 4) {
+          return true;
+        }
+      } else if (item.difficulty === "hard" && item.is_right === false) {
+        hardCorrectStreak = 0;
+      }
+    }
+
+    return false;
+  };
+
+  if (currentDifficulty === "easy") {
+    const easyCorrectStreak = countLastStreak("easy", true);
+
+    if (easyCorrectStreak >= 2) {
+      return "medium";
+    }
+
+    return "easy";
   }
 
-  let nextDifficulty = lastDifficulty;
+  if (currentDifficulty === "medium") {
+    const mediumWrongStreak = countLastStreak("medium", false);
+    const mediumCorrectStreak = countLastStreak("medium", true);
 
-  if (lastResult === true && streakOnSameDifficulty >= 2) {
-    if (lastDifficulty === "easy") nextDifficulty = "medium";
-    else if (lastDifficulty === "medium") nextDifficulty = "hard";
+    if (mediumWrongStreak >= 2) {
+      return "easy";
+    }
+
+    if (mediumCorrectStreak >= 3) {
+      return "hard";
+    }
+
+    return "medium";
   }
 
-  if (lastResult === false && streakOnSameDifficulty >= 2) {
-    if (lastDifficulty === "hard") nextDifficulty = "medium";
-    else if (lastDifficulty === "medium") nextDifficulty = "easy";
+  if (currentDifficulty === "hard") {
+    const hardWrongStreak = countLastStreak("hard", false);
+    const alreadyMasteredHard = hasEverHardCorrectStreakAtLeastFour();
+
+    if (alreadyMasteredHard) {
+      if (hardWrongStreak >= 3) {
+        return "medium";
+      }
+
+      return "hard";
+    }
+
+    if (hardWrongStreak >= 2) {
+      return "medium";
+    }
+
+    return "hard";
   }
 
-  return nextDifficulty;
+  return "easy";
 };
 
 const unlockNextQuizForUser = async (client, id_user, id_quiz) => {
@@ -464,10 +522,7 @@ const finalizeQuizByTimeout = async (
 ) => {
   const stats = await getQuizStats(client, id_user, id_quiz);
 
-  const totalTarget = Math.max(
-    1,
-    Number(stats.totalTarget || MAX_SOAL_QUIZ),
-  );
+  const totalTarget = Math.max(1, Number(stats.totalTarget || MAX_SOAL_QUIZ));
   const totalAnswered = Math.min(
     totalTarget,
     Math.max(0, Number(stats.totalAnswered || 0)),
@@ -516,7 +571,7 @@ const finalizeQuizByTimeout = async (
 
   const statusBefore = progressBeforeResult.rows[0]?.status || null;
   const normalizedSisaWaktu = normalizeSisaWaktuDetik(sisa_waktu_detik) ?? 0;
-    await client.query(
+  await client.query(
     `
     UPDATE progress_quiz
     SET
@@ -959,7 +1014,7 @@ const submitJawabanMahasiswa = async (req, res) => {
     }
 
     const idUser = req.user.id_user;
-        if (isTimeUp) {
+    if (isTimeUp) {
       await client.query("BEGIN");
 
       const progressResult = await client.query(
@@ -1381,7 +1436,7 @@ const submitJawabanMahasiswa = async (req, res) => {
           message: "Ada jawaban yang tidak valid untuk soal ini",
         });
       }
-            if (
+      if (
         (soal.tipe_soal === "pilgan" || soal.tipe_soal === "true_false") &&
         submittedIds.length !== 1
       ) {
@@ -1689,14 +1744,17 @@ const submitJawabanMahasiswa = async (req, res) => {
 
     if (isAkashicRecord) {
       skillEffectUsed = "akashic_record";
-      skillMessage = akashicRecordExpPenalty > 0
-        ? `Akashic Record aktif. Jawaban dihitung benar, tetapi karena jawaban asli salah XP quiz dikurangi ${akashicRecordExpPenalty}.`
-        : "Akashic Record aktif. Jawaban dihitung benar tanpa penalti XP.";
+      skillMessage =
+        akashicRecordExpPenalty > 0
+          ? `Akashic Record aktif. Jawaban dihitung benar, tetapi karena jawaban asli salah XP quiz dikurangi ${akashicRecordExpPenalty}.`
+          : "Akashic Record aktif. Jawaban dihitung benar tanpa penalti XP.";
     }
 
     if (isDeduction) {
       const capSkillName = isFatedRevelation ? "Fated Revelation" : "Deduction";
-      skillEffectUsed = skillEffectUsed || (isFatedRevelation ? "danger_intuition" : "deduction");
+      skillEffectUsed =
+        skillEffectUsed ||
+        (isFatedRevelation ? "danger_intuition" : "deduction");
       skillMessage = skillMessage
         ? `${skillMessage} ${capSkillName} aktif. Maksimal XP quiz ini menjadi 70%.`
         : `${capSkillName} aktif. Maksimal XP quiz ini menjadi 70%.`;
@@ -1765,7 +1823,7 @@ const submitJawabanMahasiswa = async (req, res) => {
         ? `Suppressed Desire aktif. Bonus XP +${suppressedDesireExpBonus}.`
         : "Suppressed Desire gagal. Jawaban salah, bonus XP tidak didapat.";
     }
-        if (learningAdaptationExpBonus > 0) {
+    if (learningAdaptationExpBonus > 0) {
       skillEffectUsed = skillEffectUsed || "learning_adaptation";
       skillMessage = skillMessage
         ? `${skillMessage} Learning Adaptation aktif. Bonus XP +${learningAdaptationExpBonus}.`

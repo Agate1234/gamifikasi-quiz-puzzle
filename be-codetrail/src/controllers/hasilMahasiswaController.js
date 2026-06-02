@@ -84,13 +84,19 @@ const getAllHasilMahasiswa = async (req, res) => {
         LEFT JOIN (
           SELECT
             pq.id_user,
-            COALESCE(SUM(COALESCE(pq.score, 0)) FILTER (
+            COALESCE(SUM(
+              ROUND(
+                COALESCE(q.exp_quiz, 0) *
+                (0.2 + (0.8 * (GREATEST(0, LEAST(COALESCE(pq.score, 0), 100)) / 100.0)))
+              )
+            ) FILTER (
               WHERE pq.status = ANY($1::text[])
             ), 0)::int AS total_quiz_score,
             COUNT(pq.id_progress) FILTER (
               WHERE pq.status = ANY($1::text[])
             )::int AS total_quiz_done
           FROM progress_quiz pq
+          INNER JOIN quiz q ON q.id_quiz = pq.id_quiz
           GROUP BY pq.id_user
         ) quiz_score ON quiz_score.id_user = u.id_user
 
@@ -119,8 +125,8 @@ const getAllHasilMahasiswa = async (req, res) => {
           COALESCE(SPLIT_PART(u.email, '@', 1), CAST(u.id_user AS TEXT)) AS nim,
           '-' AS kelas,
 
-          COALESCE(u.total_score, cs.total_calculated_score, u.exp, 0)::int AS xp,
-          COALESCE(u.total_score, cs.total_calculated_score, u.exp, 0)::int AS total_score,
+          COALESCE(u.exp, 0)::int AS xp,
+          COALESCE(u.exp, 0)::int AS total_score,
           COALESCE(u.exp, 0)::int AS exp,
           COALESCE(u.level, 1)::int AS level,
 
@@ -189,7 +195,7 @@ const getDetailHasilMahasiswa = async (req, res) => {
         '-' AS kelas,
         COALESCE(u.level, 1)::int AS level,
         COALESCE(u.exp, 0)::int AS exp,
-        COALESCE(u.total_score, 0)::int AS total_score,
+        COALESCE(u.exp, 0)::int AS total_score,
         COALESCE(r.nama_role, '-') AS nama_role,
         COALESCE(r.kd_role, '-') AS kd_role
       FROM users u
@@ -264,7 +270,11 @@ const getDetailHasilMahasiswa = async (req, res) => {
             COALESCE(pq.status, 'not done') AS status,
             (pq.status = ANY($2::text[])) AS is_completed,
             CASE
-              WHEN pq.status = ANY($2::text[]) THEN COALESCE(pq.score, 0)
+              WHEN pq.status = ANY($2::text[]) THEN
+                ROUND(
+                  COALESCE(q.exp_quiz, 0) *
+                  (0.2 + (0.8 * (GREATEST(0, LEAST(COALESCE(pq.score, 0), 100)) / 100.0)))
+                )
               ELSE 0
             END::int AS score,
             COALESCE(q.exp_quiz, 0)::int AS max_score,
@@ -355,8 +365,9 @@ const getDetailHasilMahasiswa = async (req, res) => {
           const maxScore = Number(item.max_score || 0);
 
           let badge = "bad";
-          if (isCompleted && score >= maxScore) badge = "perfect";
-          else if (isCompleted && score >= Math.round(maxScore * 0.75)) {
+          if (isCompleted && score >= maxScore) {
+            badge = "perfect";
+          } else if (isCompleted && score >= Math.round(maxScore * 0.75)) {
             badge = "good";
           } else if (isCompleted && score > 0) {
             badge = "ok";
@@ -364,7 +375,7 @@ const getDetailHasilMahasiswa = async (req, res) => {
 
           let rightMeta = "";
           if (item.type === "quiz") {
-            rightMeta = `${Number(item.accuracy || 0)} Score`;
+            rightMeta = `Hasil Quiz: ${Number(item.accuracy || 0)} Score`;
           } else if (item.type === "puzzle") {
             rightMeta = `${Number(item.attempt || 0)} Attempt`;
           } else if (item.type === "materi") {
@@ -386,6 +397,7 @@ const getDetailHasilMahasiswa = async (req, res) => {
             badge,
             rightMeta,
             score,
+            score_label: "Score",
             max_score: maxScore,
             attempt: item.attempt,
             waktu: item.waktu,
@@ -431,10 +443,7 @@ const getDetailHasilMahasiswa = async (req, res) => {
       data: {
         student: {
           ...student,
-          totalScore:
-            Number(student.total_score || 0) > 0
-              ? Number(student.total_score || 0)
-              : totalCalculatedScore,
+          totalScore: Number(student.exp || 0),
           status: "Mahasiswa Aktif",
           badge: `Level ${student.level || 1}`,
           lastUpdate: "Last update: realtime",
@@ -445,10 +454,7 @@ const getDetailHasilMahasiswa = async (req, res) => {
           subtotal_modules: subtotalModules,
           subtotal_events: subtotalEvents,
           total_calculated_score: totalCalculatedScore,
-          total_score:
-            Number(student.total_score || 0) > 0
-              ? Number(student.total_score || 0)
-              : totalCalculatedScore,
+          total_score: Number(student.exp || 0),
         },
       },
     });

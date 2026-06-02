@@ -173,7 +173,8 @@ const createPuzzle = async (req, res) => {
     if (!judul_puzzle || !id_modul || exp_puzzle === undefined || !tipe_puzzle) {
       return res.status(400).json({
         success: false,
-        message: "judul_puzzle, tipe_puzzle, id_modul, dan exp_puzzle wajib diisi",
+        message:
+          "judul_puzzle, tipe_puzzle, id_modul, dan exp_puzzle wajib diisi",
       });
     }
 
@@ -217,18 +218,7 @@ const createPuzzle = async (req, res) => {
       });
     }
 
-    let namaUser = created_by || "Admin";
-
-    if (req.user?.id_user) {
-      const userResult = await client.query(
-        "SELECT nama_user FROM users WHERE id_user = $1",
-        [req.user.id_user]
-      );
-
-      if (userResult.rows.length > 0) {
-        namaUser = userResult.rows[0].nama_user;
-      }
-    }
+    const namaUser = created_by || "Admin";
 
     await client.query("BEGIN");
 
@@ -420,6 +410,7 @@ const updatePuzzle = async (req, res) => {
 
   try {
     const { id } = req.params;
+
     const {
       judul_puzzle,
       deskripsi_puzzle,
@@ -438,14 +429,9 @@ const updatePuzzle = async (req, res) => {
       testcases,
       time_limit_ms,
       memory_limit_mb,
+      updated_by,
+      created_by,
     } = req.body;
-
-    if (!req.user || !req.user.id_user) {
-      return res.status(401).json({
-        success: false,
-        message: "User login tidak ditemukan di token",
-      });
-    }
 
     const checkPuzzle = await client.query(
       "SELECT * FROM puzzle WHERE id_puzzle = $1",
@@ -469,19 +455,12 @@ const updatePuzzle = async (req, res) => {
       });
     }
 
-    const userResult = await client.query(
-      "SELECT nama_user FROM users WHERE id_user = $1",
-      [req.user.id_user]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "User login tidak ditemukan",
-      });
-    }
-
-    const namaUser = userResult.rows[0].nama_user;
+    const namaUser =
+      updated_by ||
+      created_by ||
+      oldPuzzle.updated_by ||
+      oldPuzzle.created_by ||
+      "Admin";
 
     const finalIdModul = id_modul ?? oldPuzzle.id_modul;
 
@@ -540,6 +519,7 @@ const updatePuzzle = async (req, res) => {
       }
 
       const oldDragDrop = oldDragDropResult.rows[0];
+
       const normalizedItems =
         items !== undefined ? normalizeItems(items) : oldDragDrop.items;
 
@@ -590,8 +570,10 @@ const updatePuzzle = async (req, res) => {
       }
 
       const oldFillBlank = oldFillBlankResult.rows[0];
+
       const finalTemplateText = template_text ?? oldFillBlank.template_text;
-      const finalExpectedAnswers = expected_answers ?? oldFillBlank.expected_answers;
+      const finalExpectedAnswers =
+        expected_answers ?? oldFillBlank.expected_answers;
 
       if (!finalTemplateText) {
         await client.query("ROLLBACK");
@@ -651,6 +633,7 @@ const updatePuzzle = async (req, res) => {
       }
 
       const oldCode = oldCodeResult.rows[0];
+
       const finalLanguage = language ?? oldCode.language;
       const finalTestcases = testcases ?? oldCode.testcases;
 
@@ -729,10 +712,12 @@ const updatePuzzle = async (req, res) => {
 };
 
 const deletePuzzle = async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const { id } = req.params;
 
-    const checkPuzzle = await pool.query(
+    const checkPuzzle = await client.query(
       "SELECT * FROM puzzle WHERE id_puzzle = $1",
       [id]
     );
@@ -744,20 +729,35 @@ const deletePuzzle = async (req, res) => {
       });
     }
 
-    await pool.query(
-      "DELETE FROM puzzle WHERE id_puzzle = $1",
-      [id]
-    );
+    await client.query("BEGIN");
+
+    await client.query("DELETE FROM puzzle_drag_drop WHERE id_puzzle = $1", [
+      id,
+    ]);
+
+    await client.query("DELETE FROM puzzle_fill_blank WHERE id_puzzle = $1", [
+      id,
+    ]);
+
+    await client.query("DELETE FROM puzzle_code WHERE id_puzzle = $1", [id]);
+
+    await client.query("DELETE FROM puzzle WHERE id_puzzle = $1", [id]);
+
+    await client.query("COMMIT");
 
     return res.status(200).json({
       success: true,
       message: "Puzzle berhasil dihapus",
     });
   } catch (error) {
+    await client.query("ROLLBACK");
+
     return res.status(500).json({
       success: false,
       message: error.message,
     });
+  } finally {
+    client.release();
   }
 };
 

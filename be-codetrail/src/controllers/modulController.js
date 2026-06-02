@@ -308,18 +308,11 @@ const createModul = async (req, res) => {
 const updateModul = async (req, res) => {
   try {
     const { id } = req.params;
-    const { judul, deskripsi, exp_modul } = req.body;
-
-    if (!req.user || !req.user.id_user) {
-      return res.status(401).json({
-        success: false,
-        message: "User login tidak ditemukan di token",
-      });
-    }
+    const { judul, deskripsi, exp_modul, updated_by, created_by } = req.body;
 
     const checkModul = await pool.query(
       "SELECT * FROM modul WHERE id_modul = $1",
-      [id]
+      [id],
     );
 
     if (checkModul.rows.length === 0) {
@@ -331,19 +324,24 @@ const updateModul = async (req, res) => {
 
     const oldModul = checkModul.rows[0];
 
-    const userResult = await pool.query(
-      "SELECT nama_user FROM users WHERE id_user = $1",
-      [req.user.id_user]
-    );
+    let namaUser =
+      updated_by ||
+      created_by ||
+      req.body.nama_user ||
+      oldModul.updated_by ||
+      oldModul.created_by ||
+      "Admin";
 
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "User login tidak ditemukan",
-      });
+    if (req.user?.id_user) {
+      const userResult = await pool.query(
+        "SELECT nama_user FROM users WHERE id_user = $1",
+        [req.user.id_user],
+      );
+
+      if (userResult.rows.length > 0) {
+        namaUser = userResult.rows[0].nama_user;
+      }
     }
-
-    const namaUser = userResult.rows[0].nama_user;
 
     const result = await pool.query(
       `UPDATE modul
@@ -360,7 +358,7 @@ const updateModul = async (req, res) => {
         exp_modul ?? oldModul.exp_modul,
         namaUser,
         id,
-      ]
+      ],
     );
 
     return res.status(200).json({

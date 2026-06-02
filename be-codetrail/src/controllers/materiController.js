@@ -256,24 +256,16 @@ const updateMateri = async (req, res) => {
       link,
       id_modul,
       hapus_file,
+      updated_by,
+      created_by,
     } = req.body;
-
-    if (!req.user || !req.user.id_user) {
-      if (req.file) deleteUploadedFile(req.file.filename);
-
-      return res.status(401).json({
-        success: false,
-        message: "User login tidak ditemukan di token",
-      });
-    }
 
     if (req.file && !isMp4File(req.file)) {
       deleteUploadedFile(req.file.filename);
 
       return res.status(400).json({
         success: false,
-        message:
-          "File materi hanya boleh video MP4. PDF sudah tidak digunakan.",
+        message: "File materi hanya boleh video MP4. PDF sudah tidak digunakan.",
       });
     }
 
@@ -292,21 +284,6 @@ const updateMateri = async (req, res) => {
     }
 
     const oldMateri = checkMateri.rows[0];
-
-    const userResult = await pool.query(
-      "SELECT nama_user FROM users WHERE id_user = $1",
-      [req.user.id_user],
-    );
-
-    if (userResult.rows.length === 0) {
-      if (req.file) deleteUploadedFile(req.file.filename);
-
-      return res.status(404).json({
-        success: false,
-        message: "User login tidak ditemukan",
-      });
-    }
-
     const finalIdModul = id_modul ?? oldMateri.id_modul;
 
     const modulResult = await pool.query(
@@ -323,11 +300,26 @@ const updateMateri = async (req, res) => {
       });
     }
 
+    const cleanMarkdown = String(markdown_materi || "").trim();
+    const hasNewMarkdown = cleanMarkdown.length > 0;
+    const hasNewFile = Boolean(req.file);
+
+    if (hasNewMarkdown && hasNewFile) {
+      deleteUploadedFile(req.file.filename);
+
+      return res.status(400).json({
+        success: false,
+        message: "Pilih salah satu: markdown atau file. Tidak bisa keduanya.",
+      });
+    }
+
     const shouldDeleteOldFile =
       String(hapus_file || "").toLowerCase() === "true";
 
     let newFileMateri = oldMateri.file_materi;
     let newTipeFile = oldMateri.tipe_file;
+    let newMarkdownMateri =
+      markdown_materi !== undefined ? cleanMarkdown || null : oldMateri.markdown_materi;
 
     if (shouldDeleteOldFile) {
       deleteUploadedFile(oldMateri.file_materi);
@@ -335,13 +327,27 @@ const updateMateri = async (req, res) => {
       newTipeFile = null;
     }
 
-    if (req.file) {
+    if (hasNewMarkdown) {
+      deleteUploadedFile(oldMateri.file_materi);
+      newFileMateri = null;
+      newTipeFile = null;
+      newMarkdownMateri = cleanMarkdown;
+    }
+
+    if (hasNewFile) {
       deleteUploadedFile(oldMateri.file_materi);
       newFileMateri = req.file.filename;
       newTipeFile = "mp4";
+      newMarkdownMateri = null;
     }
 
-    const namaUser = userResult.rows[0].nama_user;
+    const namaUser =
+      updated_by ||
+      created_by ||
+      req.body.nama_user ||
+      oldMateri.updated_by ||
+      oldMateri.created_by ||
+      "Admin";
 
     const result = await pool.query(
       `UPDATE materi
@@ -360,7 +366,7 @@ const updateMateri = async (req, res) => {
       [
         judul_materi ?? oldMateri.judul_materi,
         deskripsi_materi ?? oldMateri.deskripsi_materi,
-        markdown_materi ?? oldMateri.markdown_materi,
+        newMarkdownMateri,
         exp_materi ?? oldMateri.exp_materi,
         link ?? oldMateri.link,
         newFileMateri,

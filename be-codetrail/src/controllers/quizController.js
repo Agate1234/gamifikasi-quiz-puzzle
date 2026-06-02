@@ -254,15 +254,15 @@ const createQuiz = async (req, res) => {
 const updateQuiz = async (req, res) => {
   try {
     const { id } = req.params;
-    const { judul_quiz, deskripsi_quiz, is_event, exp_quiz, id_modul } =
-      req.body;
-
-    if (!req.user || !req.user.id_user) {
-      return res.status(401).json({
-        success: false,
-        message: "User login tidak ditemukan di token",
-      });
-    }
+    const {
+      judul_quiz,
+      deskripsi_quiz,
+      is_event,
+      exp_quiz,
+      id_modul,
+      updated_by,
+      created_by,
+    } = req.body;
 
     const quizResult = await pool.query(
       "SELECT * FROM quiz WHERE id_quiz = $1",
@@ -276,24 +276,39 @@ const updateQuiz = async (req, res) => {
       });
     }
 
-    const userResult = await pool.query(
-      "SELECT nama_user FROM users WHERE id_user = $1",
-      [req.user.id_user],
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "User login tidak ditemukan",
-      });
-    }
+    const oldQuiz = quizResult.rows[0];
+    const finalIdModul = id_modul ?? oldQuiz.id_modul;
 
     const modulResult = await pool.query(
       "SELECT id_modul FROM modul WHERE id_modul = $1",
-      [id_modul],
+      [finalIdModul],
     );
 
-    const namaUser = userResult.rows[0].nama_user;
+    if (modulResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Modul tidak ditemukan",
+      });
+    }
+
+    let namaUser =
+      updated_by ||
+      created_by ||
+      req.body.nama_user ||
+      oldQuiz.updated_by ||
+      oldQuiz.created_by ||
+      "Admin";
+
+    if (req.user?.id_user) {
+      const userResult = await pool.query(
+        "SELECT nama_user FROM users WHERE id_user = $1",
+        [req.user.id_user],
+      );
+
+      if (userResult.rows.length > 0) {
+        namaUser = userResult.rows[0].nama_user;
+      }
+    }
 
     const result = await pool.query(
       `UPDATE quiz
@@ -307,11 +322,11 @@ const updateQuiz = async (req, res) => {
        WHERE id_quiz = $7
        RETURNING *`,
       [
-        judul_quiz,
-        deskripsi_quiz || null,
-        is_event,
-        exp_quiz,
-        id_modul,
+        judul_quiz ?? oldQuiz.judul_quiz,
+        deskripsi_quiz ?? oldQuiz.deskripsi_quiz,
+        is_event ?? oldQuiz.is_event,
+        exp_quiz ?? oldQuiz.exp_quiz,
+        finalIdModul,
         namaUser,
         id,
       ],

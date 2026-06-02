@@ -106,12 +106,19 @@ const getSoalById = async (req, res) => {
 
     const result = await pool.query(
       `
-      SELECT 
+      SELECT
+        sq.id_soal AS id,
         sq.id_soal,
+        sq.soal AS question,
         sq.soal,
+        sq.tipe_soal AS type,
         sq.tipe_soal,
         sq.difficulty,
         sq.id_quiz,
+        qz.judul_quiz AS "quizTitle",
+        qz.judul_quiz,
+        m.judul AS module,
+        m.judul AS judul_modul,
         sq.created_by,
         sq.created_at,
         sq.updated_by,
@@ -128,18 +135,23 @@ const getSoalById = async (req, res) => {
               'updated_by', j.updated_by,
               'updated_at', j.updated_at
             )
+            ORDER BY j.id_jawaban ASC
           ) FILTER (WHERE j.id_jawaban IS NOT NULL),
           '[]'
         ) AS jawaban
       FROM soal_quiz sq
       LEFT JOIN jawaban j ON sq.id_soal = j.id_soal
+      LEFT JOIN quiz qz ON sq.id_quiz = qz.id_quiz
+      LEFT JOIN modul m ON qz.id_modul = m.id_modul
       WHERE sq.id_soal = $1
-      GROUP BY 
+      GROUP BY
         sq.id_soal,
         sq.soal,
         sq.tipe_soal,
         sq.difficulty,
         sq.id_quiz,
+        qz.judul_quiz,
+        m.judul,
         sq.created_by,
         sq.created_at,
         sq.updated_by,
@@ -344,14 +356,15 @@ const updateSoal = async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { soal, tipe_soal, difficulty, id_quiz, jawaban } = req.body;
-
-    if (!req.user || !req.user.id_user) {
-      return res.status(401).json({
-        success: false,
-        message: "User login tidak ditemukan di token",
-      });
-    }
+    const {
+      soal,
+      tipe_soal,
+      difficulty,
+      id_quiz,
+      jawaban,
+      updated_by,
+      created_by,
+    } = req.body;
 
     if (!soal || !tipe_soal || !difficulty || !id_quiz) {
       return res.status(400).json({
@@ -367,18 +380,6 @@ const updateSoal = async (req, res) => {
       });
     }
 
-    const userResult = await client.query(
-      "SELECT nama_user FROM users WHERE id_user = $1",
-      [req.user.id_user],
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "User login tidak ditemukan",
-      });
-    }
-
     const soalResultCheck = await client.query(
       "SELECT * FROM soal_quiz WHERE id_soal = $1",
       [id],
@@ -391,6 +392,8 @@ const updateSoal = async (req, res) => {
       });
     }
 
+    const oldSoal = soalResultCheck.rows[0];
+
     const quizResult = await client.query(
       "SELECT id_quiz FROM quiz WHERE id_quiz = $1",
       [id_quiz],
@@ -400,6 +403,22 @@ const updateSoal = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Quiz tidak ditemukan",
+      });
+    }
+
+    const validTipe = ["pilgan", "checkbox", "true_false"];
+    if (!validTipe.includes(tipe_soal)) {
+      return res.status(400).json({
+        success: false,
+        message: "tipe_soal harus pilgan, checkbox, atau true_false",
+      });
+    }
+
+    const validDifficulty = ["easy", "medium", "hard"];
+    if (!validDifficulty.includes(difficulty)) {
+      return res.status(400).json({
+        success: false,
+        message: "difficulty harus easy, medium, atau hard",
       });
     }
 
@@ -432,7 +451,24 @@ const updateSoal = async (req, res) => {
       });
     }
 
-    const namaUser = userResult.rows[0].nama_user;
+    let namaUser =
+      updated_by ||
+      created_by ||
+      req.body.nama_user ||
+      oldSoal.updated_by ||
+      oldSoal.created_by ||
+      "Admin";
+
+    if (req.user?.id_user) {
+      const userResult = await client.query(
+        "SELECT nama_user FROM users WHERE id_user = $1",
+        [req.user.id_user],
+      );
+
+      if (userResult.rows.length > 0) {
+        namaUser = userResult.rows[0].nama_user;
+      }
+    }
 
     await client.query("BEGIN");
 
@@ -498,6 +534,7 @@ const updateSoal = async (req, res) => {
     });
   } catch (error) {
     await client.query("ROLLBACK");
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -512,25 +549,6 @@ const deleteSoal = async (req, res) => {
 
   try {
     const { id } = req.params;
-
-    if (!req.user || !req.user.id_user) {
-      return res.status(401).json({
-        success: false,
-        message: "User login tidak ditemukan di token",
-      });
-    }
-
-    const userResult = await client.query(
-      "SELECT nama_user FROM users WHERE id_user = $1",
-      [req.user.id_user],
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "User login tidak ditemukan",
-      });
-    }
 
     const checkSoal = await client.query(
       "SELECT * FROM soal_quiz WHERE id_soal = $1",
@@ -557,6 +575,7 @@ const deleteSoal = async (req, res) => {
     });
   } catch (error) {
     await client.query("ROLLBACK");
+
     return res.status(500).json({
       success: false,
       message: error.message,

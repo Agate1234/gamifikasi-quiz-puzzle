@@ -3,6 +3,7 @@ const pool = require("../config/db");
 const DONE_STATUSES = ["done", "selesai"];
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
+const MAHASISWA_ROLE_ID = 3;
 
 const toPositiveInt = (value, fallback) => {
   const parsed = parseInt(value, 10);
@@ -29,19 +30,19 @@ const getAllProgressMahasiswa = async (req, res) => {
     const offset = (pageNumber - 1) * limitNumber;
     const sortDirection = normalizeSort(sort);
 
-    const values = [DONE_STATUSES];
-    const conditions = [];
+    const values = [DONE_STATUSES, MAHASISWA_ROLE_ID];
+    const conditions = ["u.id_role = $2"];
 
     if (q) {
       values.push(`%${String(q).toLowerCase()}%`);
       conditions.push(`(
-        LOWER(COALESCE(u.email, '')) LIKE $${values.length}
+        LOWER(COALESCE(u.nama_user, '')) LIKE $${values.length}
+        OR LOWER(COALESCE(u.email, '')) LIKE $${values.length}
         OR CAST(u.id_user AS TEXT) LIKE $${values.length}
       )`);
     }
 
-    const whereClause =
-      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const whereClause = `WHERE ${conditions.join(" AND ")}`;
 
     const baseQuery = `
       WITH user_progress AS (
@@ -123,9 +124,8 @@ const getAllProgressMahasiswa = async (req, res) => {
           u.id_user AS id,
           u.id_user,
 
-          COALESCE(u.email, CONCAT('User ', u.id_user)) AS name,
+          COALESCE(u.nama_user, u.email, CONCAT('User ', u.id_user)) AS name,
           COALESCE(SPLIT_PART(u.email, '@', 1), CAST(u.id_user AS TEXT)) AS nim,
-          '-' AS kelas,
 
           COALESCE(up.done_modul, 0)::int AS done,
           COALESCE(up.total_modul, 0)::int AS total,
@@ -199,15 +199,15 @@ const getDetailProgressMahasiswa = async (req, res) => {
       `
       SELECT
         u.id_user,
-        COALESCE(u.email, CONCAT('User ', u.id_user)) AS name,
+        COALESCE(u.nama_user, u.email, CONCAT('User ', u.id_user)) AS name,
         COALESCE(u.email, '-') AS email,
-        COALESCE(SPLIT_PART(u.email, '@', 1), CAST(u.id_user AS TEXT)) AS nim,
-        '-' AS kelas
+        COALESCE(SPLIT_PART(u.email, '@', 1), CAST(u.id_user AS TEXT)) AS nim
       FROM users u
       WHERE u.id_user = $1
+        AND u.id_role = $2
       LIMIT 1
       `,
-      [id_user],
+      [id_user, MAHASISWA_ROLE_ID],
     );
 
     if (studentResult.rows.length === 0) {
