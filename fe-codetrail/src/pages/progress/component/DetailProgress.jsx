@@ -111,6 +111,10 @@ function itemIcon(type) {
   return "📌";
 }
 
+function getModuleLevel(module) {
+  return module?.level || module?.id_modul || module?.id || "-";
+}
+
 function ItemRow({ item }) {
   const meta = [];
 
@@ -208,7 +212,7 @@ function ModuleCard({ m, open, onToggle }) {
       >
         <div style={{ minWidth: 0 }}>
           <Typography.Text style={{ color: "#E6ECFF", fontWeight: 900 }}>
-            Modul {m.level || m.id_modul}: {m.title}
+            Modul {getModuleLevel(m)}: {m.title}
           </Typography.Text>
 
           <Typography.Text
@@ -283,10 +287,7 @@ function ModuleCard({ m, open, onToggle }) {
         >
           {(m.items || []).length > 0 ? (
             m.items.map((item, idx) => (
-              <ItemRow
-                key={`${item.type}-${item.id}-${idx}`}
-                item={item}
-              />
+              <ItemRow key={`${item.type}-${item.id}-${idx}`} item={item} />
             ))
           ) : (
             <Typography.Text type="secondary">
@@ -383,7 +384,7 @@ export default function DetailProgressMahasiswaModal({
     if (!detail) {
       return {
         student: fallbackStudent,
-        level: Number(fallbackStudent.level || 1),
+        currentModuleLevel: "-",
         levelProgress: 0,
         doneText: "0/0 Selesai",
         modules: [],
@@ -392,15 +393,30 @@ export default function DetailProgressMahasiswaModal({
 
     const s = detail.student || fallbackStudent;
     const summary = detail.summary || {};
+    const modules = detail.modules || [];
+
+    const activeModule =
+      modules.find(
+        (m) =>
+          !m.locked &&
+          Number(m.percent || 0) > 0 &&
+          Number(m.percent || 0) < 100,
+      ) ||
+      modules.find((m) => !m.locked && Number(m.percent || 0) < 100) ||
+      [...modules]
+        .reverse()
+        .find((m) => !m.locked && Number(m.percent || 0) >= 100) ||
+      modules.find((m) => !m.locked) ||
+      modules[0];
 
     return {
       student: s,
-      level: Number(s.level || 1),
+      currentModuleLevel: getModuleLevel(activeModule),
       levelProgress: Number(summary.overall_percent || 0),
       doneText:
         summary.done_text ||
         `${summary.done_modules || 0}/${summary.total_modules || 0} Selesai`,
-      modules: detail.modules || [],
+      modules,
     };
   }, [detail, student]);
 
@@ -466,14 +482,9 @@ export default function DetailProgressMahasiswaModal({
             Kembali
           </Button>
 
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-            <Typography.Text style={{ color: "#E6ECFF", fontWeight: 900 }}>
-              Detail Progres Mahasiswa
-            </Typography.Text>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              {data.student.name} • {data.student.nim}
-            </Typography.Text>
-          </div>
+          <Typography.Text style={{ color: "#E6ECFF", fontWeight: 900 }}>
+            Detail Progres Mahasiswa
+          </Typography.Text>
         </Space>
 
         <Select
@@ -534,9 +545,6 @@ export default function DetailProgressMahasiswaModal({
                   >
                     {data.student.name}
                   </Typography.Title>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    {data.student.nim || "-"} • {data.student.kelas || "-"}
-                  </Typography.Text>
                 </div>
 
                 <div style={{ opacity: 0.22, fontSize: 54, paddingRight: 6 }}>
@@ -573,7 +581,7 @@ export default function DetailProgressMahasiswaModal({
                 }}
               >
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  Lvl. {data.level}
+                  Lvl. {data.currentModuleLevel}
                 </Typography.Text>
 
                 <Typography.Text

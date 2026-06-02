@@ -16,9 +16,12 @@ export default function AddUserModal({
   onClose,
   onSubmit,
   loading = false,
+  initialValues = null,
 }) {
   const [form] = Form.useForm();
   const [showPass, setShowPass] = useState(false);
+
+  const isEditMode = !!(initialValues?.id_user || initialValues?.id);
 
   const roleOptions = [
     {
@@ -105,25 +108,36 @@ export default function AddUserModal({
 
     setShowPass(false);
     form.resetFields();
+
     form.setFieldsValue({
-      nama_user: "",
-      email: "",
+      nama_user: initialValues?.nama_user || initialValues?.name || "",
+      email: initialValues?.email || "",
       password: "",
-      id_role: undefined,
+      id_role:
+        initialValues?.id_role !== undefined && initialValues?.id_role !== null
+          ? Number(initialValues.id_role)
+          : undefined,
     });
-  }, [open, form]);
+  }, [open, form, initialValues]);
 
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
 
-      onSubmit?.({
+      const payload = {
         nama_user: values.nama_user,
         email: values.email,
-        password: values.password,
         id_role: values.id_role,
-        no_badge: [],
-      });
+        no_badge: Array.isArray(initialValues?.no_badge)
+          ? initialValues.no_badge
+          : [],
+      };
+
+      if (values.password && String(values.password).trim() !== "") {
+        payload.password = values.password;
+      }
+
+      onSubmit?.(payload);
     } catch {}
   };
 
@@ -164,7 +178,7 @@ export default function AddUserModal({
           </div>
 
           <Text style={{ color: "#E6ECFF", fontWeight: 900 }}>
-            Tambah User Baru
+            {isEditMode ? "Edit User" : "Tambah User Baru"}
           </Text>
         </div>
 
@@ -236,22 +250,46 @@ export default function AddUserModal({
           </Form.Item>
 
           <Form.Item
-            label={<Text style={styles.label}>Password</Text>}
+            label={
+              <Text style={styles.label}>
+                {isEditMode ? "Password Baru" : "Password"}
+              </Text>
+            }
             name="password"
-            rules={[
-              {
-                required: true,
-                message: "Password wajib diisi",
-              },
-              {
-                min: 6,
-                message: "Password minimal 6 karakter",
-              },
-            ]}
+            rules={
+              isEditMode
+                ? [
+                    {
+                      min: 6,
+                      message: "Password minimal 6 karakter",
+                    },
+                  ]
+                : [
+                    {
+                      required: true,
+                      message: "Password wajib diisi",
+                    },
+                    {
+                      min: 6,
+                      message: "Password minimal 6 karakter",
+                    },
+                  ]
+            }
+            extra={
+              isEditMode ? (
+                <span style={styles.subtle}>
+                  Kosongkan jika tidak ingin mengubah password.
+                </span>
+              ) : null
+            }
           >
             <Input
               type={showPass ? "text" : "password"}
-              placeholder="Buat password aman..."
+              placeholder={
+                isEditMode
+                  ? "Kosongkan jika tidak ingin mengubah password..."
+                  : "Buat password aman..."
+              }
               prefix={
                 <span style={styles.leftIconWrap}>
                   <LockOutlined />
@@ -284,7 +322,7 @@ export default function AddUserModal({
             ]}
             extra={
               <span style={styles.subtle}>
-                Admin hanya dapat menambahkan akun Dosen atau Mahasiswa.
+                Admin hanya dapat menambahkan atau mengubah akun Dosen dan Mahasiswa.
               </span>
             }
           >
@@ -320,7 +358,7 @@ export default function AddUserModal({
           onClick={handleSave}
           style={{ borderRadius: 12 }}
         >
-          Simpan User
+          {isEditMode ? "Update User" : "Simpan User"}
         </Button>
       </div>
     </Modal>

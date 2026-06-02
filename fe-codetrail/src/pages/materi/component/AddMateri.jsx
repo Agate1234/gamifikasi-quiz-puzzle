@@ -9,12 +9,15 @@ import {
   Button,
   Select,
   Upload,
+  Card,
+  Empty,
 } from "antd";
 import {
   PlusOutlined,
   CloudUploadOutlined,
   ThunderboltFilled,
   EditOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 import {
   createMateriApi,
@@ -24,6 +27,208 @@ import { getModulesApi } from "../../../components/api/modul";
 import { NotifAlert, NotifToast } from "../../../components/global/ToastNotif";
 
 const { Text } = Typography;
+
+function renderInlineMarkdown(text = "") {
+  const parts = String(text).split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g);
+
+  return parts.map((part, index) => {
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code
+          key={index}
+          style={{
+            padding: "2px 6px",
+            borderRadius: 6,
+            background: "rgba(124,92,255,0.18)",
+            color: "#E6ECFF",
+          }}
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+
+    if (part.startsWith("*") && part.endsWith("*")) {
+      return <em key={index}>{part.slice(1, -1)}</em>;
+    }
+
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  });
+}
+
+function MarkdownPreview({ value }) {
+  const markdown = String(value || "").trim();
+
+  if (!markdown) {
+    return (
+      <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description={
+          <span style={{ color: "rgba(255,255,255,0.55)" }}>
+            Preview markdown akan muncul di sini.
+          </span>
+        }
+      />
+    );
+  }
+
+  const lines = markdown.split("\n");
+  const elements = [];
+  let listBuffer = [];
+  let orderedListBuffer = [];
+  let codeBuffer = [];
+  let inCodeBlock = false;
+
+  const flushList = () => {
+    if (listBuffer.length > 0) {
+      elements.push(
+        <ul key={`ul-${elements.length}`} style={{ marginTop: 0, paddingLeft: 22 }}>
+          {listBuffer.map((item, index) => (
+            <li key={index}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ul>,
+      );
+      listBuffer = [];
+    }
+
+    if (orderedListBuffer.length > 0) {
+      elements.push(
+        <ol key={`ol-${elements.length}`} style={{ marginTop: 0, paddingLeft: 22 }}>
+          {orderedListBuffer.map((item, index) => (
+            <li key={index}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ol>,
+      );
+      orderedListBuffer = [];
+    }
+  };
+
+  const flushCode = () => {
+    if (codeBuffer.length > 0) {
+      elements.push(
+        <pre
+          key={`code-${elements.length}`}
+          style={{
+            margin: "8px 0",
+            padding: 12,
+            borderRadius: 12,
+            overflowX: "auto",
+            background: "rgba(0,0,0,0.32)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            color: "#E6ECFF",
+          }}
+        >
+          <code>{codeBuffer.join("\n")}</code>
+        </pre>,
+      );
+      codeBuffer = [];
+    }
+  };
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trimEnd();
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith("```")) {
+      flushList();
+
+      if (inCodeBlock) {
+        flushCode();
+        inCodeBlock = false;
+      } else {
+        inCodeBlock = true;
+      }
+
+      return;
+    }
+
+    if (inCodeBlock) {
+      codeBuffer.push(line);
+      return;
+    }
+
+    if (!trimmed) {
+      flushList();
+      return;
+    }
+
+    const unorderedMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    if (unorderedMatch) {
+      orderedListBuffer = [];
+      listBuffer.push(unorderedMatch[1]);
+      return;
+    }
+
+    const orderedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+    if (orderedMatch) {
+      listBuffer = [];
+      orderedListBuffer.push(orderedMatch[1]);
+      return;
+    }
+
+    flushList();
+
+    if (trimmed.startsWith("### ")) {
+      elements.push(
+        <h3 key={`h3-${elements.length}`} style={{ color: "#E6ECFF", margin: "10px 0 6px" }}>
+          {renderInlineMarkdown(trimmed.replace(/^###\s+/, ""))}
+        </h3>,
+      );
+      return;
+    }
+
+    if (trimmed.startsWith("## ")) {
+      elements.push(
+        <h2 key={`h2-${elements.length}`} style={{ color: "#E6ECFF", margin: "12px 0 8px" }}>
+          {renderInlineMarkdown(trimmed.replace(/^##\s+/, ""))}
+        </h2>,
+      );
+      return;
+    }
+
+    if (trimmed.startsWith("# ")) {
+      elements.push(
+        <h1 key={`h1-${elements.length}`} style={{ color: "#E6ECFF", margin: "12px 0 8px" }}>
+          {renderInlineMarkdown(trimmed.replace(/^#\s+/, ""))}
+        </h1>,
+      );
+      return;
+    }
+
+    if (trimmed.startsWith("> ")) {
+      elements.push(
+        <blockquote
+          key={`quote-${elements.length}`}
+          style={{
+            margin: "8px 0",
+            padding: "8px 12px",
+            borderLeft: "3px solid rgba(124,92,255,0.9)",
+            background: "rgba(124,92,255,0.10)",
+            color: "rgba(230,236,255,0.84)",
+          }}
+        >
+          {renderInlineMarkdown(trimmed.replace(/^>\s+/, ""))}
+        </blockquote>,
+      );
+      return;
+    }
+
+    elements.push(
+      <p key={`p-${elements.length}`} style={{ color: "rgba(230,236,255,0.82)", margin: "6px 0" }}>
+        {renderInlineMarkdown(trimmed)}
+      </p>,
+    );
+  });
+
+  flushList();
+  flushCode();
+
+  return <div>{elements}</div>;
+}
 
 export default function AddMaterialModal({
   open,
@@ -36,8 +241,12 @@ export default function AddMaterialModal({
   const [fileList, setFileList] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [moduleOptions, setModuleOptions] = useState([]);
+  const [existingFileRemoved, setExistingFileRemoved] = useState(false);
 
   const isEdit = Boolean(initialValues?.id_materi);
+  const markdownValue = Form.useWatch("markdown_materi", form) || "";
+  const hasMarkdown = String(markdownValue || "").trim().length > 0;
+  const hasFile = fileList.length > 0;
 
   useEffect(() => {
     const loadModules = async () => {
@@ -60,7 +269,7 @@ export default function AddMaterialModal({
   useEffect(() => {
     if (open) {
       form.resetFields();
-      setFileList([]);
+      setExistingFileRemoved(false);
 
       if (initialValues) {
         form.setFieldsValue({
@@ -68,23 +277,80 @@ export default function AddMaterialModal({
           id_modul: initialValues.id_modul || undefined,
           exp_materi: initialValues.exp_materi ?? 100,
           deskripsi_materi: initialValues.deskripsi_materi || "",
+          markdown_materi: initialValues.markdown_materi || "",
           link: initialValues.link || "",
         });
+
+        if (initialValues.file_materi && !initialValues.markdown_materi) {
+          setFileList([
+            {
+              uid: "existing-file",
+              name: initialValues.file_materi,
+              status: "done",
+              url: initialValues.file_materi,
+            },
+          ]);
+        } else {
+          setFileList([]);
+        }
       } else {
         form.setFieldsValue({
           judul_materi: "",
           id_modul: undefined,
           exp_materi: 100,
           deskripsi_materi: "",
+          markdown_materi: "",
           link: "",
         });
+        setFileList([]);
       }
     }
   }, [open, initialValues, form]);
 
+  const handleFileChange = ({ fileList: fl }) => {
+    const nextFileList = fl.slice(-1);
+    setFileList(nextFileList);
+
+    if (nextFileList.length > 0) {
+      form.setFieldsValue({ markdown_materi: "" });
+    }
+  };
+
+  const handleFileRemove = (file) => {
+    if (file?.uid === "existing-file") {
+      setExistingFileRemoved(true);
+    }
+
+    setFileList([]);
+    return true;
+  };
+
+  const handleMarkdownChange = (e) => {
+    const value = e.target.value;
+
+    if (String(value || "").trim()) {
+      setFileList([]);
+      if (initialValues?.file_materi) setExistingFileRemoved(true);
+    }
+  };
+
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
+      const markdownMateri = String(values.markdown_materi || "").trim();
+      const selectedFile = fileList?.[0];
+      const hasSelectedFile = Boolean(selectedFile);
+      const hasNewFile = Boolean(selectedFile?.originFileObj);
+
+      if (markdownMateri && hasSelectedFile) {
+        NotifAlert({
+          icon: "warning",
+          title: "Pilih salah satu",
+          message: "Materi tidak bisa memakai markdown dan file sekaligus.",
+        });
+        return;
+      }
+
       setSubmitting(true);
 
       const formData = new FormData();
@@ -92,10 +358,15 @@ export default function AddMaterialModal({
       formData.append("id_modul", values.id_modul);
       formData.append("exp_materi", values.exp_materi);
       formData.append("deskripsi_materi", values.deskripsi_materi || "");
-      formData.append("link", null);
+      formData.append("markdown_materi", markdownMateri);
+      formData.append("link", "");
 
-      if (fileList?.length > 0 && fileList[0]?.originFileObj) {
-        formData.append("file_materi", fileList[0].originFileObj);
+      if (isEdit && (existingFileRemoved || markdownMateri)) {
+        formData.append("hapus_file", "true");
+      }
+
+      if (hasNewFile) {
+        formData.append("file_materi", selectedFile.originFileObj);
       }
 
       const response = isEdit
@@ -181,13 +452,19 @@ export default function AddMaterialModal({
       dropzone: {
         borderRadius: 12,
         padding: "18px 14px",
-        background: "rgba(10,16,28,0.45)",
+        background: hasMarkdown ? "rgba(255,255,255,0.025)" : "rgba(10,16,28,0.45)",
         border: "1px dashed rgba(255,255,255,0.14)",
         textAlign: "center",
         color: "rgba(255,255,255,0.8)",
+        opacity: hasMarkdown ? 0.55 : 1,
+      },
+      markdownPreview: {
+        borderRadius: 14,
+        background: "rgba(10,16,28,0.38)",
+        border: "1px solid rgba(255,255,255,0.08)",
       },
     }),
-    [],
+    [hasMarkdown],
   );
 
   return (
@@ -196,7 +473,7 @@ export default function AddMaterialModal({
       onCancel={onClose}
       footer={null}
       centered
-      width={600}
+      width={920}
       closeIcon={
         <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 18 }}>×</span>
       }
@@ -286,18 +563,54 @@ export default function AddMaterialModal({
             name="deskripsi_materi"
           >
             <Input.TextArea
-              rows={4}
+              rows={3}
               placeholder="Jelaskan isi materi..."
               style={styles.textarea}
             />
           </Form.Item>
+
+          <Row gutter={12}>
+            <Col xs={24} lg={12}>
+              <Form.Item
+                label={
+                  <span>
+                    <Text style={styles.label}>Konten Markdown</Text>{" "}
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {hasFile ? "(Nonaktif karena ada file)" : "(Opsional)"}
+                    </Text>
+                  </span>
+                }
+                name="markdown_materi"
+              >
+                <Input.TextArea
+                  rows={10}
+                  disabled={hasFile}
+                  onChange={handleMarkdownChange}
+                  placeholder={`Contoh:\n# Encapsulation\nEncapsulation adalah...\n\n- Private attribute\n- Getter dan setter\n\n\`public class Main {}\``}
+                  style={{
+                    ...styles.textarea,
+                    opacity: hasFile ? 0.55 : 1,
+                  }}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} lg={12}>
+              <Text style={{ ...styles.label, display: "block", marginBottom: 8 }}>
+                Preview Markdown
+              </Text>
+              <Card bordered={false} style={styles.markdownPreview} bodyStyle={{ padding: 12, minHeight: 250, maxHeight: 300, overflow: "auto" }}>
+                <MarkdownPreview value={markdownValue} />
+              </Card>
+            </Col>
+          </Row>
 
           <Form.Item
             label={
               <span>
                 <Text style={styles.label}>Lampiran File</Text>{" "}
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  (Opsional)
+                  {hasMarkdown ? "(Nonaktif karena ada markdown)" : "(Opsional)"}
                 </Text>
               </span>
             }
@@ -305,20 +618,31 @@ export default function AddMaterialModal({
             <Upload.Dragger
               multiple={false}
               fileList={fileList}
+              disabled={hasMarkdown}
+              accept="video/mp4,.mp4"
               beforeUpload={() => false}
-              onChange={({ fileList: fl }) => setFileList(fl.slice(-1))}
+              onChange={handleFileChange}
+              onRemove={handleFileRemove}
               style={styles.dropzone}
               showUploadList
             >
               <div style={{ display: "grid", placeItems: "center", gap: 6 }}>
-                <CloudUploadOutlined
-                  style={{ fontSize: 20, color: "rgba(255,255,255,0.75)" }}
-                />
+                {hasMarkdown ? (
+                  <FileTextOutlined
+                    style={{ fontSize: 20, color: "rgba(255,255,255,0.65)" }}
+                  />
+                ) : (
+                  <CloudUploadOutlined
+                    style={{ fontSize: 20, color: "rgba(255,255,255,0.75)" }}
+                  />
+                )}
                 <Text style={{ color: "rgba(255,255,255,0.85)" }}>
-                  Klik untuk unggah atau seret file
+                  {hasMarkdown
+                    ? "File dinonaktifkan karena markdown sudah diisi"
+                    : "Klik untuk unggah atau seret file"}
                 </Text>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  PDF, PPTX, DOCX, MP4
+                  Hanya MP4. Jika memakai file, markdown harus kosong.
                 </Text>
               </div>
             </Upload.Dragger>

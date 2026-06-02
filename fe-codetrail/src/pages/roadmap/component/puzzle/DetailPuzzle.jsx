@@ -29,20 +29,34 @@ export default function DetailPuzzleModal({
     puzzle?.status ||
     (puzzle?.is_unlock ? "not done" : "locked");
 
+  const hasProgress =
+    Number(puzzle?.attempt || 0) > 0 ||
+    Number(puzzle?.waktu || 0) > 0 ||
+    Boolean(puzzle?.jawaban) ||
+    Boolean(puzzle?.hasil);
+
   const normalizedStatus =
     rawStatus === "done"
       ? "done"
       : rawStatus === "locked"
         ? "locked"
-        : "not done";
+        : rawStatus === "progress" || hasProgress
+          ? "progress"
+          : "not done";
 
   const primaryLabel =
-    normalizedStatus === "done" ? "Preview Puzzle →" : "Mulai Puzzle →";
+    normalizedStatus === "done"
+      ? "Preview Puzzle →"
+      : normalizedStatus === "progress"
+        ? "Lanjutkan Puzzle →"
+        : "Mulai Puzzle →";
 
   const infoLine =
     normalizedStatus === "done"
       ? "Puzzle sudah selesai, tombol di bawah akan membuka preview puzzle."
-      : "Setelah menekan tombol mulai, puzzle akan langsung dibuka.";
+      : normalizedStatus === "progress"
+        ? "Puzzle sudah memiliki riwayat pengerjaan, tombol di bawah akan melanjutkan progress terakhir."
+        : "Setelah menekan tombol mulai, puzzle akan langsung dibuka.";
 
   const waktuText =
     waktu > 0 ? `${Math.floor(waktu / 60)} menit ${waktu % 60} detik` : "-";

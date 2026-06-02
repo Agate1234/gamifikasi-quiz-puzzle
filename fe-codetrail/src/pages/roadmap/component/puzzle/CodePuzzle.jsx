@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { P } from "./PuzzleStyle";
 import { usePuzzleTimer } from "./PuzzleTimer";
 import {
+  savePuzzleProgressApi,
   updatePuzzleAttemptApi,
   runCodeApi,
 } from "../../../../components/api/puzzlemap";
@@ -21,7 +22,11 @@ export default function CodePuzzle({
   onTutorPuzzleFinished,
 }) {
   const detail = puzzle?.detail || {};
-  const { secondsElapsed, timeMM, timeSS, timeText } = usePuzzleTimer(open);
+  const { secondsElapsed, timeMM, timeSS, timeText } = usePuzzleTimer(
+    open,
+    Number(puzzle?.waktu || 0),
+    puzzle?.id_progress_puzzle || puzzle?.id_puzzle || puzzle?.id || "code",
+  );
   const [code, setCode] = useState("");
   const [attempt, setAttempt] = useState(Number(puzzle?.attempt || 0));
   const [output, setOutput] = useState("");
@@ -34,13 +39,20 @@ export default function CodePuzzle({
 
   const isDone = puzzle?.raw_status === "done" || puzzle?.status === "done";
 
-  const handleClose = () => {
-    if (!isDone) {
-      alert("Selesaikan puzzle terlebih dahulu sebelum kembali.");
-      return;
+  const normalizeJsonValue = (value, fallback = {}) => {
+    if (!value) return fallback;
+
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return fallback;
+      }
     }
 
-    onClose?.();
+    if (typeof value === "object") return value;
+
+    return fallback;
   };
 
   useEffect(() => {
@@ -48,12 +60,17 @@ export default function CodePuzzle({
 
     const done = puzzle?.raw_status === "done" || puzzle?.status === "done";
 
+    const jawaban = normalizeJsonValue(puzzle?.jawaban, {});
+    const hasil = normalizeJsonValue(puzzle?.hasil, {});
+
     setIsSolved(done);
-    setCode(puzzle?.jawaban?.code || detail.starter_code || "");
+    setCode(jawaban?.code || detail.starter_code || "");
     setOutput(
-      done ? "✅ Puzzle sudah selesai. Ini adalah preview jawaban." : "",
+      done
+        ? "✅ Puzzle sudah selesai. Ini adalah preview jawaban."
+        : hasil?.message || "",
     );
-    setTestResults(puzzle?.hasil?.testResults || []);
+    setTestResults(Array.isArray(hasil?.testResults) ? hasil.testResults : []);
     setAttempt(Number(puzzle?.attempt || 0));
     setRunning(false);
   }, [open, detail.starter_code, puzzle]);
@@ -78,8 +95,6 @@ export default function CodePuzzle({
       window.removeEventListener("keydown", onKey);
     };
   }, [open, onClose, tutorActive, isDone]);
-
-  if (!open) return null;
 
   const normalizeLanguage = (value) => {
     return String(value || "")
@@ -107,6 +122,47 @@ export default function CodePuzzle({
   const isEqualValue = (a, b) => {
     return JSON.stringify(a) === JSON.stringify(b);
   };
+
+  const saveProgressOnly = async () => {
+    if (!open || !puzzle?.id_progress_puzzle || isSolved) return;
+
+    try {
+      await savePuzzleProgressApi(puzzle.id_progress_puzzle, {
+        waktu: Number(secondsElapsed || 0),
+        jawaban: {
+          type: "code",
+          language: normalizeLanguage(detail.language),
+          code,
+        },
+        hasil: {
+          testResults,
+          message: output,
+        },
+      });
+    } catch (error) {
+      console.error("Gagal autosave progress code puzzle:", error);
+    }
+  };
+
+  const handleClose = async () => {
+    await saveProgressOnly();
+    onClose?.();
+  };
+
+  useEffect(() => {
+    if (!open || isSolved || !puzzle?.id_progress_puzzle) return;
+    if (secondsElapsed <= 0 || secondsElapsed % 3 !== 0) return;
+
+    saveProgressOnly();
+  }, [
+    open,
+    isSolved,
+    puzzle?.id_progress_puzzle,
+    secondsElapsed,
+    code,
+    output,
+    testResults,
+  ]);
 
   const runJavascriptTestcases = () => {
     const functionName = detail.function_name;
@@ -357,11 +413,16 @@ export default function CodePuzzle({
     }
   };
 
+  if (!open) return null;
+
   return (
-    <div style={P.overlay} onMouseDown={handleClose}>
+    <div style={P.overlay}>
       <div style={P.sheet} onMouseDown={(e) => e.stopPropagation()}>
         <div style={P.topbar}>
           <div style={P.breadcrumb}>
+            <button style={P.backBtn} onClick={handleClose} title="Kembali">
+              ←
+            </button>
             <span style={P.muted}>Roadmap</span>
             <span style={P.muted}>›</span>
             <span style={P.crumbStrong}>
@@ -520,7 +581,7 @@ export default function CodePuzzle({
                 </div>
               ) : (
                 <div style={P.actions}>
-                  <button style={P.checkBtn} onClick={onClose}>
+                  <button style={P.checkBtn} onClick={handleClose}>
                     Kembali ke Modul
                   </button>
                 </div>

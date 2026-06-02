@@ -1,13 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-export function usePuzzleTimer(open) {
-  const [secondsElapsed, setSecondsElapsed] = useState(0);
+export function usePuzzleTimer(open, initialSeconds = 0, resetKey = "default") {
+  const [secondsElapsed, setSecondsElapsed] = useState(() =>
+    Math.max(0, Number(initialSeconds || 0)),
+  );
+
+  const wasOpenRef = useRef(false);
+  const resetKeyRef = useRef(resetKey);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      wasOpenRef.current = false;
+      return;
+    }
 
-    setSecondsElapsed(0);
-  }, [open]);
+    const shouldReset =
+      wasOpenRef.current === false || resetKeyRef.current !== resetKey;
+
+    if (shouldReset) {
+      setSecondsElapsed(Math.max(0, Number(initialSeconds || 0)));
+      resetKeyRef.current = resetKey;
+    }
+
+    wasOpenRef.current = true;
+  }, [open, initialSeconds, resetKey]);
 
   useEffect(() => {
     if (!open) return;
@@ -17,7 +33,7 @@ export function usePuzzleTimer(open) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [open]);
+  }, [open, resetKey]);
 
   const timeMM = useMemo(() => {
     return String(Math.floor(secondsElapsed / 60)).padStart(2, "0");

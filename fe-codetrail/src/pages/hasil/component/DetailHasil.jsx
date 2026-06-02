@@ -47,13 +47,32 @@ function initials(name = "") {
 
 function StatusPill({ status }) {
   const map = {
-    perfect: { label: "PERFECT", bg: "rgba(0,201,167,0.18)", color: "#BFF8EB" },
-    good: { label: "GOOD", bg: "rgba(58,123,255,0.18)", color: "#CFE0FF" },
-    ok: { label: "OK", bg: "rgba(255,193,7,0.18)", color: "#FFE8A3" },
-    bad: { label: "LOW", bg: "rgba(255,82,82,0.18)", color: "#FFC7C7" },
+    perfect: {
+      label: "PERFECT",
+      bg: "rgba(0,201,167,0.18)",
+      color: "#BFF8EB",
+    },
+    good: {
+      label: "GOOD",
+      bg: "rgba(58,123,255,0.18)",
+      color: "#CFE0FF",
+    },
+    ok: {
+      label: "OK",
+      bg: "rgba(255,193,7,0.18)",
+      color: "#FFE8A3",
+    },
+    bad: {
+      label: "LOW",
+      bg: "rgba(255,82,82,0.18)",
+      color: "#FFC7C7",
+    },
   };
 
-  const cfg = map[status] || { label: status || "-", bg: "rgba(255,255,255,0.10)" };
+  const cfg = map[status] || {
+    label: status || "-",
+    bg: "rgba(255,255,255,0.10)",
+  };
 
   return (
     <Pill bg={cfg.bg} color={cfg.color}>
@@ -69,6 +88,7 @@ function ItemIcon({ type }) {
     materi: "📘",
     event: "🎯",
   };
+
   return <span style={{ opacity: 0.85 }}>{map[type] || "📌"}</span>;
 }
 
@@ -92,7 +112,11 @@ function ScoreRow({ item }) {
         <Typography.Text style={{ color: "#E6ECFF", fontWeight: 800 }}>
           {item.title}
         </Typography.Text>
-        <Typography.Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+
+        <Typography.Text
+          type="secondary"
+          style={{ display: "block", fontSize: 12 }}
+        >
           {item.meta}
         </Typography.Text>
       </div>
@@ -106,8 +130,11 @@ function ScoreRow({ item }) {
         }}
       >
         {item.badge && <StatusPill status={item.badge} />}
+
         {item.rightMeta && (
-          <Typography.Text style={{ color: "rgba(230,236,255,0.6)", fontSize: 12 }}>
+          <Typography.Text
+            style={{ color: "rgba(230,236,255,0.6)", fontSize: 12 }}
+          >
             {item.rightMeta}
           </Typography.Text>
         )}
@@ -120,7 +147,8 @@ function ScoreRow({ item }) {
           textAlign: "right",
         }}
       >
-        {Number(item.score || 0).toLocaleString("en-US")} Score
+        {Number(item.score || 0).toLocaleString("en-US")}{" "}
+        {item.scoreLabel || item.score_label || "Score"}
       </Typography.Text>
     </div>
   );
@@ -151,7 +179,11 @@ function ModuleAccordion({ m, open, onToggle }) {
           <Typography.Text style={{ color: "#E6ECFF", fontWeight: 900 }}>
             {m.title}
           </Typography.Text>
-          <Typography.Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+
+          <Typography.Text
+            type="secondary"
+            style={{ display: "block", fontSize: 12 }}
+          >
             {m.countText}
           </Typography.Text>
         </div>
@@ -165,9 +197,13 @@ function ModuleAccordion({ m, open, onToggle }) {
           }}
         >
           <div style={{ textAlign: "right" }}>
-            <Typography.Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+            <Typography.Text
+              type="secondary"
+              style={{ display: "block", fontSize: 12 }}
+            >
               Sub-total Score
             </Typography.Text>
+
             <Typography.Text style={{ color: "#E6ECFF", fontWeight: 900 }}>
               {Number(m.subtotal || 0).toLocaleString("en-US")} Score
             </Typography.Text>
@@ -248,7 +284,9 @@ export default function PreviewScoreMahasiswaModal({ open, onClose, student }) {
         }
       } else {
         setDetail(null);
-        message.error(response.data?.message || "Gagal mengambil detail hasil mahasiswa.");
+        message.error(
+          response.data?.message || "Gagal mengambil detail hasil mahasiswa.",
+        );
       }
 
       setLoading(false);
@@ -270,9 +308,9 @@ export default function PreviewScoreMahasiswaModal({ open, onClose, student }) {
       badge: `Level ${student?.level || 1}`,
       totalScore:
         student?.totalScore ??
-        student?.score ??
         student?.total_score ??
         student?.xp ??
+        student?.exp ??
         0,
       lastUpdate: "Last update: realtime",
     };
@@ -307,6 +345,7 @@ export default function PreviewScoreMahasiswaModal({ open, onClose, student }) {
           (it) =>
             String(it.title || "").toLowerCase().includes(s) ||
             String(it.meta || "").toLowerCase().includes(s) ||
+            String(it.rightMeta || "").toLowerCase().includes(s) ||
             String(it.score || "").includes(s),
         ),
       }))
@@ -332,8 +371,8 @@ export default function PreviewScoreMahasiswaModal({ open, onClose, student }) {
   const totalScore =
     data.student.totalScore ??
     data.student.total_score ??
-    data.student.score ??
     data.student.xp ??
+    data.student.exp ??
     0;
 
   return (
@@ -367,7 +406,9 @@ export default function PreviewScoreMahasiswaModal({ open, onClose, student }) {
       >
         <Button
           type="text"
-          icon={<ArrowLeftOutlined style={{ color: "rgba(230,236,255,0.8)" }} />}
+          icon={
+            <ArrowLeftOutlined style={{ color: "rgba(230,236,255,0.8)" }} />
+          }
           onClick={onClose}
           style={{ color: "rgba(230,236,255,0.88)" }}
         >
@@ -378,13 +419,21 @@ export default function PreviewScoreMahasiswaModal({ open, onClose, student }) {
           allowClear
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          prefix={<SearchOutlined style={{ color: "rgba(255,255,255,0.45)" }} />}
+          prefix={
+            <SearchOutlined style={{ color: "rgba(255,255,255,0.45)" }} />
+          }
           placeholder="Cari data..."
           style={{ width: 320, borderRadius: 14 }}
         />
       </div>
 
-      <div style={{ height: "calc(100vh - 62px)", overflow: "auto", padding: 18 }}>
+      <div
+        style={{
+          height: "calc(100vh - 62px)",
+          overflow: "auto",
+          padding: 18,
+        }}
+      >
         <Spin spinning={loading}>
           <Card
             style={{
@@ -409,23 +458,25 @@ export default function PreviewScoreMahasiswaModal({ open, onClose, student }) {
               </Avatar>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Typography.Title level={4} style={{ margin: 0, color: "#E6ECFF" }}>
+                <Typography.Title
+                  level={4}
+                  style={{ margin: 0, color: "#E6ECFF" }}
+                >
                   {data.student.name}
                 </Typography.Title>
 
-                <div style={{ marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    🪪 {data.student.nim}
-                  </Typography.Text>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    • {data.student.kelas}
-                  </Typography.Text>
-                </div>
-
-                <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    marginTop: 10,
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
                   <Pill bg="rgba(0,201,167,0.18)" color="#BFF8EB">
                     {data.student.status || "Mahasiswa Aktif"}
                   </Pill>
+
                   <Pill bg="rgba(124,92,255,0.18)" color="#E6ECFF">
                     {data.student.badge || `Level ${data.student.level || 1}`}
                   </Pill>
@@ -436,8 +487,13 @@ export default function PreviewScoreMahasiswaModal({ open, onClose, student }) {
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                   TOTAL SCORE
                 </Typography.Text>
-                <Typography.Title level={3} style={{ margin: "4px 0 0", color: "#E6ECFF" }}>
+
+                <Typography.Title
+                  level={3}
+                  style={{ margin: "4px 0 0", color: "#E6ECFF" }}
+                >
                   {Number(totalScore || 0).toLocaleString("en-US")}
+
                   <span
                     style={{
                       fontSize: 13,
@@ -448,6 +504,7 @@ export default function PreviewScoreMahasiswaModal({ open, onClose, student }) {
                     Score
                   </span>
                 </Typography.Title>
+
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                   {data.student.lastUpdate || "Last update: realtime"}
                 </Typography.Text>
@@ -511,10 +568,14 @@ export default function PreviewScoreMahasiswaModal({ open, onClose, student }) {
                     }}
                   >
                     <ItemIcon type="event" />
+
                     <div style={{ minWidth: 0 }}>
-                      <Typography.Text style={{ color: "#E6ECFF", fontWeight: 800 }}>
+                      <Typography.Text
+                        style={{ color: "#E6ECFF", fontWeight: 800 }}
+                      >
                         {e.title}
                       </Typography.Text>
+
                       <Typography.Text
                         type="secondary"
                         style={{ display: "block", fontSize: 12 }}
@@ -522,6 +583,7 @@ export default function PreviewScoreMahasiswaModal({ open, onClose, student }) {
                         {e.meta}
                       </Typography.Text>
                     </div>
+
                     <Typography.Text
                       style={{
                         color: "rgba(124,92,255,0.95)",

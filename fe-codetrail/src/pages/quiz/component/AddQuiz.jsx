@@ -24,7 +24,7 @@ export default function AddQuizModal({
   moduleOptions = [],
 }) {
   const [form] = Form.useForm();
-  const [isEvent, setIsEvent] = useState(false);
+  const isEvent = false;
 
   const isEdit = Boolean(initialValues?.id);
 
@@ -40,7 +40,7 @@ export default function AddQuizModal({
         xp: initialValues?.exp ?? initialValues?.xp ?? 100,
       };
 
-      setIsEvent(Boolean(initialValues?.is_event ?? initialValues?.isEvent));
+      // Event dimatikan sementara, jadi nilainya selalu false.
       form.setFieldsValue(mappedValues);
     }
   }, [open, initialValues, form]);
@@ -50,10 +50,11 @@ export default function AddQuizModal({
       const values = await form.validateFields();
 
       onSubmit?.({
-        ...values,
-        moduleId: isEvent ? null : values.moduleId,
-        isEvent,
-      });
+  ...values,
+  moduleId: values.moduleId,
+  isEvent: false,
+  is_event: false,
+});
     } catch {}
   };
 
@@ -187,12 +188,12 @@ export default function AddQuizModal({
 
           <Row gutter={12}>
             <Col xs={15} md={3}>
-              <Form.Item label={<Text style={labelStyle}>Event</Text>}>
-                <Space>
-                  <Switch checked={isEvent} onChange={setIsEvent} />
-                </Space>
-              </Form.Item>
-            </Col>
+  <Form.Item label={<Text style={labelStyle}>Event</Text>}>
+    <Space>
+      <Switch checked={false} disabled />
+    </Space>
+  </Form.Item>
+</Col>
 
             <Col xs={15} md={12}>
               <Form.Item

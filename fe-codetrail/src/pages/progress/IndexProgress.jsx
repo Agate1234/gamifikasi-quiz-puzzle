@@ -5,16 +5,14 @@ import {
   Space,
   Button,
   Typography,
-  Dropdown,
-  Select,
   Avatar,
   Progress,
+  Select,
 } from "antd";
 import {
   SearchOutlined,
   EyeOutlined,
   DownloadOutlined,
-  FilterOutlined,
   SortAscendingOutlined,
 } from "@ant-design/icons";
 import TableList from "../../components/global/TableList.jsx";
@@ -40,18 +38,24 @@ function getPercent(row) {
   const done = Number(row?.done || 0);
   const total = Number(row?.total || 0);
   if (total <= 0) return 0;
+
   return Math.round((done / total) * 100);
 }
 
 export default function ProgressMahasiswa() {
   const [trigger, setTrigger] = useState(0);
   const [q, setQ] = useState("");
-  const [kelas, setKelas] = useState("");
-  const [openDetail, setOpenDetail] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState(null);
   const [sort, setSort] = useState("desc");
 
-  const queryParams = useMemo(() => ({ q, kelas, sort }), [q, kelas, sort]);
+  const [openDetail, setOpenDetail] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+
+  const queryParams = useMemo(() => ({ q, sort }), [q, sort]);
+
+  const openDetailModal = (row) => {
+    setSelectedStudent(row);
+    setOpenDetail(true);
+  };
 
   const columns = useMemo(
     () => [
@@ -74,13 +78,13 @@ export default function ProgressMahasiswa() {
 
             <div style={{ lineHeight: 1.1 }}>
               <Typography.Text
-                style={{ color: "#E6ECFF", fontWeight: 800, display: "block" }}
+                style={{
+                  color: "#E6ECFF",
+                  fontWeight: 800,
+                  display: "block",
+                }}
               >
                 {row.name || "-"}
-              </Typography.Text>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                {row.nim || "-"}{" "}
-                {row.kelas && row.kelas !== "-" ? `• ${row.kelas}` : ""}
               </Typography.Text>
             </div>
           </div>
@@ -132,33 +136,13 @@ export default function ProgressMahasiswa() {
         key: "action",
         width: 90,
         align: "right",
-        render: (_, row) => {
-          const items = [
-            {
-              key: `detail-${row.id_user ?? row.id ?? row.nim ?? ""}`,
-              label: "Lihat Detail",
-              onClick: () => {
-                setSelectedStudent(row);
-                setOpenDetail(true);
-              },
-            },
-          ];
-
-          return (
-            <Dropdown
-              menu={{ items }}
-              trigger={["click"]}
-              placement="bottomRight"
-            >
-              <Button
-                type="text"
-                icon={
-                  <EyeOutlined style={{ color: "rgba(255,255,255,0.65)" }} />
-                }
-              />
-            </Dropdown>
-          );
-        },
+        render: (_, row) => (
+          <Button
+            type="text"
+            onClick={() => openDetailModal(row)}
+            icon={<EyeOutlined style={{ color: "rgba(255,255,255,0.65)" }} />}
+          />
+        ),
       },
     ],
     [],
@@ -167,15 +151,12 @@ export default function ProgressMahasiswa() {
   const mobile = useMemo(
     () => ({
       r1: { name: "name", style: { fontWeight: 800, color: "#E6ECFF" } },
-      r2: { text: "NIM", name: "nim", type: "secondary" },
-      r3: { text: "Kelas", name: "kelas", type: "secondary" },
+      r2: { text: "Progress", name: "percent", type: "secondary" },
+      r3: { text: "", name: "" },
       r5: { text: "Done", name: "done" },
       r6: { text: "Total", name: "total" },
       actionLabel: "Detail",
-      action: (item) => {
-        setSelectedStudent(item);
-        setOpenDetail(true);
-      },
+      action: (item) => openDetailModal(item),
     }),
     [],
   );
@@ -183,7 +164,6 @@ export default function ProgressMahasiswa() {
   const handleExportCsv = async () => {
     const params = new URLSearchParams({
       q,
-      kelas,
       sort,
       page: "1",
       limit: "9999",
@@ -192,19 +172,10 @@ export default function ProgressMahasiswa() {
     const response = await getProgressMahasiswaApi(params);
     const rows = response?.data?.data || [];
 
-    const header = [
-      "Nama",
-      "NIM",
-      "Kelas",
-      "Modul Selesai",
-      "Total Modul",
-      "Persen",
-    ];
+    const header = ["Nama", "Modul Selesai", "Total Modul", "Persen"];
 
     const body = rows.map((row) => [
       row.name || "-",
-      row.nim || "-",
-      row.kelas || "-",
       row.done || 0,
       row.total || 0,
       `${getPercent(row)}%`,
@@ -242,6 +213,7 @@ export default function ProgressMahasiswa() {
           <Typography.Title level={4} style={{ margin: 0, color: "#E6ECFF" }}>
             Progres Mahasiswa
           </Typography.Title>
+
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             Pantau perkembangan dan pencapaian mahasiswa.
           </Typography.Text>
@@ -256,7 +228,7 @@ export default function ProgressMahasiswa() {
             prefix={
               <SearchOutlined style={{ color: "rgba(255,255,255,0.45)" }} />
             }
-            placeholder="Cari nama / NIM mahasiswa..."
+            placeholder="Cari nama mahasiswa..."
             style={{ width: 280, borderRadius: 14 }}
           />
 
@@ -277,28 +249,6 @@ export default function ProgressMahasiswa() {
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <Select
-          value={kelas || undefined}
-          onChange={(v) => {
-            setKelas(v || "");
-            setTrigger((x) => x + 1);
-          }}
-          allowClear
-          placeholder={
-            <span style={{ color: "rgba(230,236,255,0.75)" }}>
-              <FilterOutlined />
-              &nbsp; Semua Kelas
-            </span>
-          }
-          style={{ minWidth: 170, borderRadius: 14 }}
-          options={[
-            { label: "Kelas A", value: "Kelas A" },
-            { label: "Kelas B", value: "Kelas B" },
-            { label: "Kelas TI-1A", value: "Kelas TI-1A" },
-            { label: "Kelas TI-1B", value: "Kelas TI-1B" },
-          ]}
-        />
-
-        <Select
           value={sort}
           onChange={(v) => {
             setSort(v);
@@ -313,19 +263,6 @@ export default function ProgressMahasiswa() {
             <SortAscendingOutlined style={{ color: "rgba(230,236,255,0.6)" }} />
           }
         />
-
-        <Button
-          onClick={() => setTrigger((x) => x + 1)}
-          style={{
-            borderRadius: 14,
-            background: "rgba(124,92,255,0.16)",
-            border: "1px solid rgba(124,92,255,0.35)",
-            color: "#E6ECFF",
-            fontWeight: 700,
-          }}
-        >
-          Terapkan
-        </Button>
       </div>
 
       <Card
@@ -348,7 +285,10 @@ export default function ProgressMahasiswa() {
 
         <DetailProgressMahasiswaModal
           open={openDetail}
-          onClose={() => setOpenDetail(false)}
+          onClose={() => {
+            setOpenDetail(false);
+            setSelectedStudent(null);
+          }}
           student={selectedStudent}
         />
       </Card>

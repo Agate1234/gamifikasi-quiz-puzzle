@@ -44,7 +44,7 @@ export default function AddPuzzleModal({
 
   const [tipePuzzle, setTipePuzzle] = useState("drag_drop");
   const [difficulty, setDifficulty] = useState("easy");
-  const [isEvent, setIsEvent] = useState(false);
+  const isEvent = false;
 
   const [items, setItems] = useState([
     { id: 1, value: "" },
@@ -61,7 +61,8 @@ export default function AddPuzzleModal({
     '[\n  {\n    "input": [1, 2],\n    "expected_output": 3\n  }\n]',
   );
 
-  const isEditMode = !!initialValues?.id;
+  const puzzleId = initialValues?.id || initialValues?.id_puzzle;
+  const isEditMode = !!puzzleId;
 
   useEffect(() => {
     if (!open) return;
@@ -112,13 +113,18 @@ export default function AddPuzzleModal({
 
     form.resetFields();
 
-    const mappedType = initialValues?.tipe_puzzle || "drag_drop";
-    const mappedDifficulty = initialValues?.difficulty_puzzle || "easy";
-    const mappedIsEvent = !!initialValues?.is_event;
+    const mappedType =
+      initialValues?.tipe_puzzle ||
+      initialValues?.type ||
+      "drag_drop";
+    const mappedDifficulty =
+      initialValues?.difficulty_puzzle ||
+      initialValues?.level ||
+      "easy";
+    // Event dimatikan sementara, jadi nilainya selalu false.
 
     setTipePuzzle(mappedType);
     setDifficulty(mappedDifficulty);
-    setIsEvent(mappedIsEvent);
 
     if (mappedType === "drag_drop") {
       const sourceItems = Array.isArray(initialValues?.items)
@@ -254,7 +260,7 @@ export default function AddPuzzleModal({
       judul_puzzle: values.judul_puzzle,
       deskripsi_puzzle: values.deskripsi_puzzle || "",
       difficulty_puzzle: difficulty,
-      is_event: isEvent,
+      is_event: false,
       exp_puzzle: Number(values.exp_puzzle),
       id_modul: Number(values.id_modul),
       instruksi: values.instruksi,
@@ -319,7 +325,7 @@ export default function AddPuzzleModal({
       const payload = buildPayload(values);
 
       const response = isEditMode
-        ? await updatePuzzleApi(initialValues.id, payload)
+        ? await updatePuzzleApi(puzzleId, payload)
         : await createPuzzleApi(payload);
 
       if (response?.status === 200 || response?.status === 201) {
@@ -519,11 +525,11 @@ export default function AddPuzzleModal({
 
           <Row gutter={12}>
             {/* EVENT (kiri) */}
-            <Col xs={24} md={3}>
+            <Col xs={24} md={2}>
               <div style={{ marginBottom: 8 }}>
                 <Text style={styles.label}>Event</Text>
               </div>
-              <Switch checked={isEvent} onChange={setIsEvent} />
+              <Switch checked={false} disabled />
             </Col>
 
             {/* TIPE PUZZLE */}
@@ -555,7 +561,7 @@ export default function AddPuzzleModal({
             </Col>
 
             {/* KESULITAN */}
-            <Col xs={24} md={10}>
+            <Col xs={24} md={11}>
               <div style={{ marginBottom: 8 }}>
                 <Text style={styles.label}>Kesulitan</Text>
               </div>

@@ -1,10 +1,10 @@
+/*
 import React, { useMemo, useState } from "react";
 import { Card, Input, Space, Button, Typography, Dropdown } from "antd";
 import { PlusOutlined, MoreOutlined, SearchOutlined } from "@ant-design/icons";
 import TableList from "../../components/global/TableList.jsx";
 import AddEventModal from "./component/AddEvent.jsx";
 
-// ====== DEMO GET DATA (ganti ke API kamu) ======
 async function getEvents(param) {
   const params = new URLSearchParams(param);
 
@@ -184,7 +184,6 @@ export default function ManageEvent() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Header page */}
       <div
         style={{
           display: "flex",
@@ -225,7 +224,6 @@ export default function ManageEvent() {
         </Space>
       </div>
 
-      {/* Container table */}
       <Card
         style={{
           borderRadius: 16,
@@ -253,6 +251,127 @@ export default function ManageEvent() {
           }}
         />
       </Card>
+    </div>
+  );
+}
+  */
+
+import React from "react";
+import { Typography } from "antd";
+import {
+  CalendarOutlined,
+  CodeOutlined,
+  ToolOutlined,
+} from "@ant-design/icons";
+
+export default function ManageEvent() {
+  return (
+    <div
+      style={{
+        minHeight: "calc(100vh - 120px)",
+        display: "grid",
+        placeItems: "center",
+        padding: 24,
+      }}
+    >
+      <div
+        style={{
+          width: "min(560px, 100%)",
+          borderRadius: 24,
+          padding: "34px 28px",
+          textAlign: "center",
+          background:
+            "radial-gradient(700px 360px at 50% 0%, rgba(60,255,201,0.13), rgba(14,23,38,0.98) 62%)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 22px 70px rgba(0,0,0,0.34)",
+        }}
+      >
+        <div
+          style={{
+            width: 92,
+            height: 92,
+            borderRadius: 26,
+            margin: "0 auto 22px",
+            position: "relative",
+            display: "grid",
+            placeItems: "center",
+            border: "1px solid rgba(60,255,201,0.30)",
+            background:
+              "radial-gradient(circle at 30% 25%, rgba(60,255,201,0.18), transparent 48%), rgba(255,255,255,0.03)",
+            boxShadow:
+              "0 0 30px rgba(60,255,201,0.13), inset 0 0 20px rgba(255,255,255,0.03)",
+          }}
+        >
+          <CalendarOutlined
+            style={{
+              fontSize: 40,
+              color: "rgba(60,255,201,0.96)",
+            }}
+          />
+
+          <CodeOutlined
+            style={{
+              position: "absolute",
+              right: 14,
+              bottom: 17,
+              fontSize: 17,
+              color: "rgba(140,86,255,0.95)",
+            }}
+          />
+
+          <ToolOutlined
+            style={{
+              position: "absolute",
+              left: 14,
+              bottom: 17,
+              fontSize: 16,
+              color: "rgba(60,255,201,0.88)",
+            }}
+          />
+        </div>
+
+        <Typography.Title
+          level={3}
+          style={{
+            margin: 0,
+            color: "#E6ECFF",
+            fontWeight: 950,
+            letterSpacing: -0.5,
+          }}
+        >
+          Event Under Development
+        </Typography.Title>
+
+        <Typography.Text
+          style={{
+            display: "block",
+            marginTop: 10,
+            color: "rgba(230,236,255,0.62)",
+            fontSize: 14,
+            lineHeight: 1.7,
+          }}
+        >
+          Fitur event CodeTrail sedang disiapkan. Untuk sementara, halaman ini
+          belum dapat digunakan dan data event belum ditampilkan.
+        </Typography.Text>
+
+        <div
+          style={{
+            margin: "24px auto 0",
+            width: "fit-content",
+            padding: "9px 14px",
+            borderRadius: 999,
+            border: "1px solid rgba(60,255,201,0.22)",
+            background: "rgba(60,255,201,0.07)",
+            color: "rgba(230,236,255,0.82)",
+            fontSize: 12,
+            fontWeight: 800,
+            letterSpacing: 0.6,
+          }}
+        >
+          COMING SOON
+        </div>
+      </div>
     </div>
   );
 }

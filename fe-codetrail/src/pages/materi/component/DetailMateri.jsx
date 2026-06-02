@@ -16,12 +16,213 @@ import {
   PlayCircleOutlined,
   FilePdfOutlined,
   LinkOutlined,
-  TrophyOutlined,
   FileOutlined,
   EyeOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 
 const { Title, Text, Paragraph } = Typography;
+
+function renderInlineMarkdown(text = "") {
+  const parts = String(text).split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g);
+
+  return parts.map((part, index) => {
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code
+          key={index}
+          style={{
+            padding: "2px 6px",
+            borderRadius: 6,
+            background: "rgba(124,92,255,0.18)",
+            color: "#E6ECFF",
+          }}
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+
+    if (part.startsWith("*") && part.endsWith("*")) {
+      return <em key={index}>{part.slice(1, -1)}</em>;
+    }
+
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  });
+}
+
+function MarkdownPreview({ value }) {
+  const markdown = String(value || "").trim();
+
+  if (!markdown) {
+    return (
+      <Empty
+        description={
+          <span style={{ color: "rgba(255,255,255,0.65)" }}>
+            Markdown materi belum tersedia.
+          </span>
+        }
+      />
+    );
+  }
+
+  const lines = markdown.split("\n");
+  const elements = [];
+  let listBuffer = [];
+  let orderedListBuffer = [];
+  let codeBuffer = [];
+  let inCodeBlock = false;
+
+  const flushList = () => {
+    if (listBuffer.length > 0) {
+      elements.push(
+        <ul key={`ul-${elements.length}`} style={{ marginTop: 0, paddingLeft: 24 }}>
+          {listBuffer.map((item, index) => (
+            <li key={index}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ul>,
+      );
+      listBuffer = [];
+    }
+
+    if (orderedListBuffer.length > 0) {
+      elements.push(
+        <ol key={`ol-${elements.length}`} style={{ marginTop: 0, paddingLeft: 24 }}>
+          {orderedListBuffer.map((item, index) => (
+            <li key={index}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ol>,
+      );
+      orderedListBuffer = [];
+    }
+  };
+
+  const flushCode = () => {
+    if (codeBuffer.length > 0) {
+      elements.push(
+        <pre
+          key={`code-${elements.length}`}
+          style={{
+            margin: "10px 0",
+            padding: 14,
+            borderRadius: 14,
+            overflowX: "auto",
+            background: "rgba(0,0,0,0.34)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            color: "#E6ECFF",
+          }}
+        >
+          <code>{codeBuffer.join("\n")}</code>
+        </pre>,
+      );
+      codeBuffer = [];
+    }
+  };
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trimEnd();
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith("```")) {
+      flushList();
+
+      if (inCodeBlock) {
+        flushCode();
+        inCodeBlock = false;
+      } else {
+        inCodeBlock = true;
+      }
+
+      return;
+    }
+
+    if (inCodeBlock) {
+      codeBuffer.push(line);
+      return;
+    }
+
+    if (!trimmed) {
+      flushList();
+      return;
+    }
+
+    const unorderedMatch = trimmed.match(/^[-*]\s+(.+)$/);
+    if (unorderedMatch) {
+      orderedListBuffer = [];
+      listBuffer.push(unorderedMatch[1]);
+      return;
+    }
+
+    const orderedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
+    if (orderedMatch) {
+      listBuffer = [];
+      orderedListBuffer.push(orderedMatch[1]);
+      return;
+    }
+
+    flushList();
+
+    if (trimmed.startsWith("### ")) {
+      elements.push(
+        <h3 key={`h3-${elements.length}`} style={{ color: "#F5F7FF", margin: "12px 0 8px" }}>
+          {renderInlineMarkdown(trimmed.replace(/^###\s+/, ""))}
+        </h3>,
+      );
+      return;
+    }
+
+    if (trimmed.startsWith("## ")) {
+      elements.push(
+        <h2 key={`h2-${elements.length}`} style={{ color: "#F5F7FF", margin: "14px 0 8px" }}>
+          {renderInlineMarkdown(trimmed.replace(/^##\s+/, ""))}
+        </h2>,
+      );
+      return;
+    }
+
+    if (trimmed.startsWith("# ")) {
+      elements.push(
+        <h1 key={`h1-${elements.length}`} style={{ color: "#F5F7FF", margin: "14px 0 8px" }}>
+          {renderInlineMarkdown(trimmed.replace(/^#\s+/, ""))}
+        </h1>,
+      );
+      return;
+    }
+
+    if (trimmed.startsWith("> ")) {
+      elements.push(
+        <blockquote
+          key={`quote-${elements.length}`}
+          style={{
+            margin: "10px 0",
+            padding: "10px 14px",
+            borderLeft: "3px solid rgba(124,92,255,0.9)",
+            background: "rgba(124,92,255,0.10)",
+            color: "rgba(230,236,255,0.84)",
+          }}
+        >
+          {renderInlineMarkdown(trimmed.replace(/^>\s+/, ""))}
+        </blockquote>,
+      );
+      return;
+    }
+
+    elements.push(
+      <p key={`p-${elements.length}`} style={{ color: "rgba(230,236,255,0.82)", margin: "8px 0", lineHeight: 1.7 }}>
+        {renderInlineMarkdown(trimmed)}
+      </p>,
+    );
+  });
+
+  flushList();
+  flushCode();
+
+  return <div>{elements}</div>;
+}
 
 function MiniInfoCard({ icon, label, value }) {
   return (
@@ -63,6 +264,8 @@ export default function DetailMateriModal({ open, onClose, materiData }) {
   if (!materiData) return null;
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+  const markdownMateri = String(materiData?.markdown_materi || "").trim();
+  const hasMarkdown = markdownMateri.length > 0;
 
   const fileApiUrl = materiData?.id_materi
     ? `${API_BASE_URL}/materi/${materiData.id_materi}/file`
@@ -79,21 +282,25 @@ export default function DetailMateriModal({ open, onClose, materiData }) {
   const isPdf = tipeFile.includes("pdf") || fileName.endsWith(".pdf");
 
   const hasPreviewFile = Boolean(
-    materiData?.file_materi && materiData?.id_materi,
+    !hasMarkdown && materiData?.file_materi && materiData?.id_materi,
   );
-  const hasExternalLink = Boolean(materiData?.link);
+  const hasExternalLink = Boolean(!hasMarkdown && materiData?.link);
 
-  const fileTypeLabel = isVideo
-    ? "Video"
-    : isPdf
-      ? "PDF"
-      : hasPreviewFile
-        ? "File"
-        : hasExternalLink
-          ? "Link"
-          : "-";
+  const fileTypeLabel = hasMarkdown
+    ? "Markdown"
+    : isVideo
+      ? "Video"
+      : isPdf
+        ? "PDF"
+        : hasPreviewFile
+          ? "File"
+          : hasExternalLink
+            ? "Link"
+            : "-";
 
-  const fileTypeIcon = isVideo ? (
+  const fileTypeIcon = hasMarkdown ? (
+    <FileTextOutlined />
+  ) : isVideo ? (
     <PlayCircleOutlined />
   ) : isPdf ? (
     <FilePdfOutlined />
@@ -258,7 +465,7 @@ export default function DetailMateriModal({ open, onClose, materiData }) {
             <MiniInfoCard
               icon={<FolderOpenOutlined />}
               label="Nama File"
-              value={materiData?.file_materi || "-"}
+              value={hasMarkdown ? "-" : materiData?.file_materi || "-"}
             />
           </Col>
         </Row>
@@ -280,7 +487,7 @@ export default function DetailMateriModal({ open, onClose, materiData }) {
               fontSize: 16,
             }}
           >
-            Preview File
+            {hasMarkdown ? "Preview Markdown" : "Preview File"}
           </Text>
 
           <Space wrap>
@@ -328,7 +535,18 @@ export default function DetailMateriModal({ open, onClose, materiData }) {
             minHeight: 360,
           }}
         >
-          {hasPreviewFile && isVideo ? (
+          {hasMarkdown ? (
+            <div
+              style={{
+                minHeight: 320,
+                maxHeight: 520,
+                overflow: "auto",
+                padding: 12,
+              }}
+            >
+              <MarkdownPreview value={markdownMateri} />
+            </div>
+          ) : hasPreviewFile && isVideo ? (
             <video
               controls
               preload="metadata"
@@ -404,7 +622,7 @@ export default function DetailMateriModal({ open, onClose, materiData }) {
               <Empty
                 description={
                   <span style={{ color: "rgba(255,255,255,0.65)" }}>
-                    Materi ini belum memiliki file atau link untuk dipreview.
+                    Materi ini belum memiliki markdown, file, atau link untuk dipreview.
                   </span>
                 }
               />

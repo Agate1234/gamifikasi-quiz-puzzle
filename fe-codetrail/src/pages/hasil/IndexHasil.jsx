@@ -2,14 +2,13 @@ import React, { useMemo, useState } from "react";
 import {
   Card,
   Input,
-  Space,
   Button,
   Typography,
   Select,
   Avatar,
   Tag,
 } from "antd";
-import { SearchOutlined, EyeOutlined, FilterOutlined } from "@ant-design/icons";
+import { SearchOutlined, EyeOutlined } from "@ant-design/icons";
 import TableList from "../../components/global/TableList.jsx";
 import PreviewScoreMahasiswaModal from "./component/DetailHasil.jsx";
 import { getHasilMahasiswaApi } from "../../components/api/hasilmahassiwa.jsx";
@@ -45,14 +44,17 @@ function XPPill({ xp }) {
 
 export default function HasilMahasiswa() {
   const [trigger, setTrigger] = useState(0);
-
   const [q, setQ] = useState("");
-  const [kelas, setKelas] = useState("");
   const [sort, setSort] = useState("desc");
   const [openScore, setOpenScore] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
-  const queryParams = useMemo(() => ({ q, kelas, sort }), [q, kelas, sort]);
+  const queryParams = useMemo(() => ({ q, sort }), [q, sort]);
+
+  const openDetail = (row) => {
+    setSelectedStudent(row);
+    setOpenScore(true);
+  };
 
   const columns = useMemo(
     () => [
@@ -75,12 +77,13 @@ export default function HasilMahasiswa() {
 
             <div style={{ lineHeight: 1.1 }}>
               <Typography.Text
-                style={{ color: "#E6ECFF", fontWeight: 800, display: "block" }}
+                style={{
+                  color: "#E6ECFF",
+                  fontWeight: 800,
+                  display: "block",
+                }}
               >
                 {row.name || "-"}
-              </Typography.Text>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                NIM: {row.nim || "-"}
               </Typography.Text>
             </div>
           </div>
@@ -102,10 +105,7 @@ export default function HasilMahasiswa() {
           <Button
             type="text"
             icon={<EyeOutlined style={{ color: "rgba(255,255,255,0.65)" }} />}
-            onClick={() => {
-              setSelectedStudent(row);
-              setOpenScore(true);
-            }}
+            onClick={() => openDetail(row)}
           />
         ),
       },
@@ -116,15 +116,12 @@ export default function HasilMahasiswa() {
   const mobile = useMemo(
     () => ({
       r1: { name: "name", style: { fontWeight: 800, color: "#E6ECFF" } },
-      r2: { text: "NIM", name: "nim", type: "secondary" },
-      r3: { text: "Score", name: "xp", type: "secondary" },
+      r2: { text: "Score", name: "xp", type: "secondary" },
+      r3: { text: "", name: "" },
       r5: { text: "", name: "" },
       r6: { text: "", name: "" },
       actionLabel: "Detail",
-      action: (item) => {
-        setSelectedStudent(item);
-        setOpenScore(true);
-      },
+      action: (item) => openDetail(item),
     }),
     [],
   );
@@ -144,6 +141,7 @@ export default function HasilMahasiswa() {
           <Typography.Title level={4} style={{ margin: 0, color: "#E6ECFF" }}>
             Daftar Mahasiswa
           </Typography.Title>
+
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             Kelola daftar mahasiswa dan lihat detail hasil pengerjaan mereka.
           </Typography.Text>
@@ -157,32 +155,12 @@ export default function HasilMahasiswa() {
           prefix={
             <SearchOutlined style={{ color: "rgba(255,255,255,0.45)" }} />
           }
-          placeholder="Cari nama / email mahasiswa..."
+          placeholder="Cari nama mahasiswa..."
           style={{ width: 280, borderRadius: 14 }}
         />
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <Select
-          value={kelas || undefined}
-          onChange={(v) => {
-            setKelas(v || "");
-            setTrigger((x) => x + 1);
-          }}
-          allowClear
-          placeholder={
-            <span style={{ color: "rgba(230,236,255,0.75)" }}>
-              <FilterOutlined />
-              &nbsp; Semua Kelas
-            </span>
-          }
-          style={{ minWidth: 170, borderRadius: 14 }}
-          options={[
-            { label: "Kelas A", value: "Kelas A" },
-            { label: "Kelas B", value: "Kelas B" },
-          ]}
-        />
-
         <Select
           value={sort}
           onChange={(v) => {
@@ -195,19 +173,6 @@ export default function HasilMahasiswa() {
             { label: "Score Terendah", value: "asc" },
           ]}
         />
-
-        <Button
-          onClick={() => setTrigger((x) => x + 1)}
-          style={{
-            borderRadius: 14,
-            background: "rgba(124,92,255,0.16)",
-            border: "1px solid rgba(124,92,255,0.35)",
-            color: "#E6ECFF",
-            fontWeight: 700,
-          }}
-        >
-          Terapkan
-        </Button>
       </div>
 
       <Card
@@ -230,7 +195,10 @@ export default function HasilMahasiswa() {
 
         <PreviewScoreMahasiswaModal
           open={openScore}
-          onClose={() => setOpenScore(false)}
+          onClose={() => {
+            setOpenScore(false);
+            setSelectedStudent(null);
+          }}
           student={selectedStudent}
         />
       </Card>

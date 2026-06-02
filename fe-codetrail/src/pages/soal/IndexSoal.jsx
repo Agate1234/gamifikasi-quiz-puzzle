@@ -12,7 +12,12 @@ import {
 import { PlusOutlined, MoreOutlined, SearchOutlined } from "@ant-design/icons";
 import TableList from "../../components/global/TableList.jsx";
 import AddSoalModal from "./component/AddSoal.jsx";
-import { getSoalApi, deleteSoalApi } from "../../components/api/soal";
+import DetailSoalModal from "./component/DetailSoal.jsx";
+import {
+  getSoalApi,
+  getSoalByIdApi,
+  deleteSoalApi,
+} from "../../components/api/soal";
 import { NotifAlert, NotifToast } from "../../components/global/ToastNotif";
 
 async function getSoal(param) {
@@ -74,7 +79,12 @@ function TypePill({ type }) {
     pilgan: { label: "Pilihan Ganda", bg: "rgba(124,92,255,0.18)" },
     true_false: { label: "True / False", bg: "rgba(255,149,0,0.18)" },
   };
-  const cfg = map[type] || { label: type, bg: "rgba(255,255,255,0.10)" };
+
+  const cfg = map[type] || {
+    label: type || "-",
+    bg: "rgba(255,255,255,0.10)",
+  };
+
   return <Pill bg={cfg.bg}>{cfg.label}</Pill>;
 }
 
@@ -84,7 +94,13 @@ function DiffPill({ diff }) {
     medium: { label: "Medium", bg: "rgba(255,193,7,0.18)", color: "#FFE8A3" },
     hard: { label: "Hard", bg: "rgba(255,82,82,0.18)", color: "#FFC7C7" },
   };
-  const cfg = map[diff] || { label: diff, bg: "rgba(255,255,255,0.10)" };
+
+  const cfg = map[diff] || {
+    label: diff || "-",
+    bg: "rgba(255,255,255,0.10)",
+    color: "#E6ECFF",
+  };
+
   return (
     <Pill bg={cfg.bg} color={cfg.color}>
       {cfg.label}
@@ -92,16 +108,76 @@ function DiffPill({ diff }) {
   );
 }
 
+function normalizeDetail(raw) {
+  if (!raw) return null;
+
+  return {
+    id: raw.id || raw.id_soal,
+    question: raw.question || raw.soal,
+    soal: raw.soal || raw.question,
+    type: raw.type || raw.tipe_soal,
+    tipe_soal: raw.tipe_soal || raw.type,
+    difficulty: raw.difficulty,
+    id_quiz: raw.id_quiz,
+    quizTitle: raw.quizTitle || raw.judul_quiz || raw.quiz_title,
+    judul_quiz: raw.judul_quiz || raw.quizTitle,
+    module: raw.module || raw.judul_modul || raw.modul,
+    judul_modul: raw.judul_modul || raw.module,
+    jawaban: Array.isArray(raw.jawaban) ? raw.jawaban : [],
+    created_by: raw.created_by,
+    created_at: raw.created_at,
+    updated_by: raw.updated_by,
+    updated_at: raw.updated_at,
+  };
+}
+
 export default function ManageSoal() {
   const [trigger, setTrigger] = useState(0);
   const [q, setQ] = useState("");
+
   const [openAdd, setOpenAdd] = useState(false);
   const [selectedSoal, setSelectedSoal] = useState(null);
+
   const [openDelete, setOpenDelete] = useState(false);
   const [deletingSoal, setDeletingSoal] = useState(null);
 
+  const [openDetail, setOpenDetail] = useState(false);
+  const [detailSoal, setDetailSoal] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
   const refreshTable = () => setTrigger((x) => x + 1);
   const queryParams = useMemo(() => ({ q }), [q]);
+
+  const handleDetail = async (row) => {
+    try {
+      setOpenDetail(true);
+      setDetailLoading(true);
+      setDetailSoal(null);
+
+      const response = await getSoalByIdApi(row.id);
+
+      if (response?.status === 200) {
+        setDetailSoal(normalizeDetail(response?.data?.data));
+      } else {
+        NotifAlert({
+          icon: "error",
+          title: "Gagal",
+          message: response?.data?.message || "Gagal mengambil detail soal.",
+        });
+        setOpenDetail(false);
+      }
+    } catch (error) {
+      NotifAlert({
+        icon: "error",
+        title: "Gagal",
+        message:
+          error?.message || "Terjadi kesalahan saat mengambil detail soal.",
+      });
+      setOpenDetail(false);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const handleDelete = (row) => {
     setDeletingSoal(row);
@@ -188,7 +264,7 @@ export default function ManageSoal() {
             {
               key: "detail",
               label: "Detail",
-              onClick: () => console.log("detail", row),
+              onClick: () => handleDetail(row),
             },
             {
               key: "edit",
@@ -198,7 +274,11 @@ export default function ManageSoal() {
                 setOpenAdd(true);
               },
             },
-            { key: "delete", label: "Hapus", onClick: () => handleDelete(row) },
+            {
+              key: "delete",
+              label: "Hapus",
+              onClick: () => handleDelete(row),
+            },
           ];
 
           return (
@@ -229,7 +309,7 @@ export default function ManageSoal() {
       r5: { text: "Tipe", name: "type" },
       r6: { text: "Level", name: "difficulty" },
       actionLabel: "Detail",
-      action: (item) => console.log("detail mobile", item),
+      action: (item) => handleDetail(item),
     }),
     [],
   );
@@ -242,6 +322,7 @@ export default function ManageSoal() {
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
+          flexWrap: "wrap",
         }}
       >
         <div>
@@ -253,7 +334,7 @@ export default function ManageSoal() {
           </Typography.Text>
         </div>
 
-        <Space>
+        <Space wrap>
           <Input
             allowClear
             value={q}
@@ -265,6 +346,7 @@ export default function ManageSoal() {
             placeholder="Cari soal..."
             style={{ width: 280, borderRadius: 14 }}
           />
+
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -309,6 +391,16 @@ export default function ManageSoal() {
             refreshTable();
           }}
           initialValues={selectedSoal || null}
+        />
+
+        <DetailSoalModal
+          open={openDetail}
+          loading={detailLoading}
+          data={detailSoal}
+          onClose={() => {
+            setOpenDetail(false);
+            setDetailSoal(null);
+          }}
         />
 
         <Modal
@@ -404,6 +496,7 @@ export default function ManageSoal() {
               >
                 !
               </div>
+
               <span style={{ color: "#E6ECFF", fontSize: 22, fontWeight: 600 }}>
                 Hapus Soal
               </span>

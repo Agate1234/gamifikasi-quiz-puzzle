@@ -112,3 +112,27 @@ export const runCodeApi = async (payload = {}) => {
     );
   }
 };
+
+export const savePuzzleProgressApi = async (
+  idProgressPuzzle,
+  payload = {},
+) => {
+  try {
+    const response = await api.patch(
+      `/roadmap/puzzle-map/${idProgressPuzzle}/save-progress`,
+      payload,
+    );
+
+    return response;
+  } catch (error) {
+    return (
+      error.response || {
+        status: 500,
+        data: {
+          success: false,
+          message: "Gagal menyimpan progress puzzle.",
+        },
+      }
+    );
+  }
+};

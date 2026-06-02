@@ -2,7 +2,10 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { P } from "./PuzzleStyle";
 import { usePuzzleTimer } from "./PuzzleTimer";
-import { updatePuzzleAttemptApi } from "../../../../components/api/puzzlemap";
+import {
+  updatePuzzleAttemptApi,
+  savePuzzleProgressApi,
+} from "../../../../components/api/puzzlemap";
 
 export default function FillBlankPuzzle({
   open,
@@ -18,32 +21,79 @@ export default function FillBlankPuzzle({
   onTutorPuzzleFinished,
 }) {
   const detail = puzzle?.detail || {};
-  const { secondsElapsed, timeMM, timeSS, timeText } = usePuzzleTimer(open);
+  const { secondsElapsed, timeMM, timeSS, timeText } = usePuzzleTimer(
+    open,
+    Number(puzzle?.waktu || 0),
+    puzzle?.id_progress_puzzle || puzzle?.id_puzzle || puzzle?.id || "fill-blank",
+  );
 
   const [answers, setAnswers] = useState({});
   const [attempt, setAttempt] = useState(Number(puzzle?.attempt || 0));
   const [popupNotif, setPopupNotif] = useState(null);
 
   const isDone = puzzle?.raw_status === "done" || puzzle?.status === "done";
-  const isPreview = isDone || puzzle?.hasil || puzzle?.jawaban;
+  const isPreview =
+    isDone || puzzle?.status === "progress" || puzzle?.hasil || puzzle?.jawaban;
 
-  const handleClose = () => {
-    if (!isDone) {
-      alert("Selesaikan puzzle terlebih dahulu sebelum kembali.");
-      return;
+  const normalizeJsonValue = (value, fallback = {}) => {
+    if (!value) return fallback;
+
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return fallback;
+      }
     }
 
+    if (typeof value === "object") return value;
+
+    return fallback;
+  };
+
+  const getSavedAnswers = () => {
+    const jawaban = normalizeJsonValue(puzzle?.jawaban, {});
+
+    return jawaban?.answers || {};
+  };
+
+  const buildJawabanPayload = () => ({
+    type: "fill_blank",
+    answers,
+  });
+
+  const buildHasilPayload = () => ({
+    template: detail.template_text || "",
+    expected_answers: detail.expected_answers || {},
+  });
+
+  const saveProgressOnly = async () => {
+    if (!puzzle?.id_progress_puzzle || isDone) return;
+
+    try {
+      await savePuzzleProgressApi(puzzle.id_progress_puzzle, {
+        waktu: Number(secondsElapsed || 0),
+        jawaban: buildJawabanPayload(),
+        hasil: buildHasilPayload(),
+      });
+    } catch (error) {
+      console.error("Gagal autosave progress fill blank:", error);
+    }
+  };
+
+  const handleClose = async () => {
+    await saveProgressOnly();
     onClose?.();
   };
 
   useEffect(() => {
     if (!open) return;
 
-    const savedAnswers = puzzle?.jawaban?.answers || {};
+    const savedAnswers = getSavedAnswers();
 
     setAnswers(isPreview ? savedAnswers : {});
     setAttempt(Number(puzzle?.attempt || 0));
-  }, [open, puzzle?.attempt, puzzle?.jawaban, isPreview]);
+  }, [open, puzzle?.attempt, puzzle?.jawaban, puzzle?.status, isPreview]);
 
   useEffect(() => {
     if (!open) return;
@@ -65,6 +115,24 @@ export default function FillBlankPuzzle({
       window.removeEventListener("keydown", onKey);
     };
   }, [open, onClose, tutorActive, isDone]);
+
+  useEffect(() => {
+    if (!open || isDone || !puzzle?.id_progress_puzzle) return;
+
+    const autosave = setInterval(() => {
+      saveProgressOnly();
+    }, 5000);
+
+    return () => clearInterval(autosave);
+  }, [
+    open,
+    isDone,
+    puzzle?.id_progress_puzzle,
+    secondsElapsed,
+    answers,
+    detail.template_text,
+    detail.expected_answers,
+  ]);
 
   if (!open) return null;
 
@@ -161,15 +229,8 @@ export default function FillBlankPuzzle({
         return String(answers[key] || "").trim() !== "";
       });
 
-      const jawabanPayload = {
-        type: "fill_blank",
-        answers,
-      };
-
-      const hasilPayload = {
-        template,
-        expected_answers: expectedAnswers,
-      };
+      const jawabanPayload = buildJawabanPayload();
+      const hasilPayload = buildHasilPayload();
 
       if (!isComplete) {
         const response = await updatePuzzleAttemptApi(
@@ -282,10 +343,13 @@ export default function FillBlankPuzzle({
   };
 
   return (
-    <div style={P.overlay} onMouseDown={handleClose}>
+    <div style={P.overlay}>
       <div style={P.sheet} onMouseDown={(e) => e.stopPropagation()}>
         <div style={P.topbar}>
           <div style={P.breadcrumb}>
+            <button style={P.backBtn} onClick={handleClose} title="Kembali">
+              ←
+            </button>
             <span style={P.muted}>Roadmap</span>
             <span style={P.muted}>›</span>
             <span style={P.crumbStrong}>
