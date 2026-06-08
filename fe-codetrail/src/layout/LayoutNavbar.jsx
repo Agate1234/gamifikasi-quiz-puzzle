@@ -15,6 +15,8 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import { getUserLevelApi } from "../components/api/level";
 import { getUserByIdApi, updateUserApi } from "../components/api/user";
+// import seerLogo from "../assets/roles/seer.png";
+// import spectatorLogo from "../assets/roles/spectator.png";
 
 const { Header } = Layout;
 
@@ -374,6 +376,492 @@ const ROLE_META = {
   reader: { short: "Membaca dan memahami", color: "#3b82f6" },
 };
 
+// const ROLE_IMAGE_ASSETS = {
+//   seer: seerLogo,
+//   spectator: spectatorLogo,
+// };
+
+const ROLE_COMPARISON_CONFIG = {
+  assassin: {
+    ability: [
+      { label: "Eliminasi Opsi", value: 92 },
+      { label: "Skip Soal", value: 78 },
+    ],
+    vulnerability: [
+      { label: "Penalti Waktu", value: 72 },
+      { label: "Batas Pemakaian", value: 42 },
+    ],
+    summary:
+      "Assassin cocok untuk mahasiswa yang ingin bantuan cepat saat ragu menjawab. Kuat di eliminasi opsi dan skip soal, tetapi ada risiko waktu berkurang saat memakai Mighty Blow.",
+  },
+  seer: {
+    ability: [
+      { label: "Deteksi Jawaban", value: 96 },
+      { label: "Waktu Soal Sulit", value: 70 },
+    ],
+    vulnerability: [
+      { label: "Batas Maks XP", value: 82 },
+      { label: "Ketergantungan Hint", value: 46 },
+    ],
+    summary:
+      "Seer paling kuat untuk membaca kemungkinan jawaban benar. Risikonya ada pada EXP karena Fated Revelation membuat maksimal XP quiz menjadi 70%.",
+  },
+  marauder: {
+    ability: [
+      { label: "Bonus EXP", value: 88 },
+      { label: "Kesempatan Ulang", value: 76 },
+    ],
+    vulnerability: [
+      { label: "Syarat Benar", value: 66 },
+      { label: "Efek Situasional", value: 48 },
+    ],
+    summary:
+      "Marauder cocok untuk mengejar reward. Ability utamanya adalah bonus EXP dan kesempatan menjawab ulang, tetapi efeknya banyak bergantung pada jawaban benar dan kondisi soal.",
+  },
+  spectator: {
+    ability: [
+      { label: "Cek Jawaban", value: 88 },
+      { label: "Deduksi Opsi", value: 94 },
+    ],
+    vulnerability: [
+      { label: "Batas Maks XP", value: 80 },
+      { label: "Tidak Bantu Waktu", value: 58 },
+    ],
+    summary:
+      "Spectator kuat untuk mahasiswa yang ingin memastikan pilihan. Risiko utamanya ada pada EXP karena Deduction membatasi maksimal XP, dan role ini tidak banyak membantu waktu.",
+  },
+  criminal: {
+    ability: [
+      { label: "Bonus EXP", value: 78 },
+      { label: "Reduksi Damage", value: 72 },
+    ],
+    vulnerability: [
+      { label: "Damage 2x", value: 92 },
+      { label: "Butuh Health", value: 56 },
+    ],
+    summary:
+      "Criminal adalah role agresif. Bisa memberi bonus EXP atau mengurangi damage, tetapi paling berisiko ke health karena Evil Impulse dapat membuat damage menjadi dua kali lipat.",
+  },
+  prisoner: {
+    ability: [
+      { label: "Tambah Waktu", value: 86 },
+      { label: "Recovery Health", value: 84 },
+    ],
+    vulnerability: [
+      { label: "Submit Terkunci", value: 70 },
+      { label: "Syarat Kondisi", value: 62 },
+    ],
+    summary:
+      "Prisoner cocok untuk bertahan saat tertekan. Kuat di tambahan waktu dan pemulihan health, tetapi beberapa skill hanya aktif pada kondisi tertentu dan Suppressed Desire mengunci submit sementara.",
+  },
+  warrior: {
+    ability: [
+      { label: "Guard Health", value: 88 },
+      { label: "Counter Jawaban", value: 84 },
+    ],
+    vulnerability: [
+      { label: "Syarat Health", value: 54 },
+      { label: "Batas Soal Akhir", value: 48 },
+    ],
+    summary:
+      "Warrior adalah role paling stabil untuk bertahan. Ability utamanya menjaga health dan memberi counter saat salah, dengan risiko lebih kecil dibanding role agresif.",
+  },
+  reader: {
+    ability: [
+      { label: "Stop Timer", value: 94 },
+      { label: "Auto Benar", value: 86 },
+    ],
+    vulnerability: [
+      { label: "Penalti EXP", value: 74 },
+      { label: "Efek Setelah Salah", value: 52 },
+    ],
+    summary:
+      "Reader cocok untuk mahasiswa yang butuh waktu membaca. Kuat di stop timer dan bantuan jawaban, tetapi Akashic Record bisa mengurangi XP jika jawaban asli salah.",
+  },
+};
+function getRoleComparison(roleKey) {
+  return ROLE_COMPARISON_CONFIG[roleKey] || {
+    ability: [],
+    vulnerability: [],
+    summary: "Pilih role untuk melihat kemampuan dan risikonya secara ringkas.",
+  };
+}
+
+function getCompactSkillEffect(text = "") {
+  if (!text) return "Efek skill aktif saat kondisi terpenuhi.";
+
+  const firstSentence = text.split(". ")[0]?.trim();
+  return firstSentence ? `${firstSentence}.` : text;
+}
+
+/*
+  BAR + PERSEN VERSION - sementara dikomentari.
+  Kalau nanti mau balik ke bar persentase, aktifkan lagi MetricBar ini
+  dan balikan JSX metricGrid lama di bagian preview role.
+
+function MetricBar({ label, value, color, variant = "ability" }) {
+  const safeValue = Math.max(0, Math.min(Number(value) || 0, 100));
+
+  return (
+    <div style={modalStyles.metricItem}>
+      <div style={modalStyles.metricTop}>
+        <span style={modalStyles.metricLabel}>{label}</span>
+        <span
+          style={{
+            ...modalStyles.metricValue,
+            ...(variant === "vulnerability"
+              ? modalStyles.metricValueDanger
+              : modalStyles.metricValueAbility),
+          }}
+        >
+          {safeValue}%
+        </span>
+      </div>
+
+      <div style={modalStyles.metricBarOuter}>
+        <div
+          style={{
+            ...modalStyles.metricBarInner,
+            width: `${safeValue}%`,
+            background:
+              variant === "vulnerability"
+                ? "linear-gradient(90deg, rgba(251,191,36,0.88), rgba(244,63,94,0.82))"
+                : `linear-gradient(90deg, ${color}cc, rgba(60,255,201,0.88))`,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+*/
+
+function getTraitLevel(value = 0) {
+  const safeValue = Number(value) || 0;
+
+  if (safeValue >= 85) return { label: "Dominan", dots: 4 };
+  if (safeValue >= 70) return { label: "Kuat", dots: 3 };
+  if (safeValue >= 55) return { label: "Sedang", dots: 2 };
+  return { label: "Ringan", dots: 1 };
+}
+
+function TraitCard({ item, color, variant = "ability" }) {
+  const level = getTraitLevel(item?.value);
+  const isDanger = variant === "vulnerability";
+  const accent = isDanger ? "#fb7185" : color || "#3cffc9";
+
+  return (
+    <div
+      style={{
+        ...modalStyles.traitCard,
+        ...(isDanger ? modalStyles.traitCardDanger : modalStyles.traitCardAbility),
+      }}
+    >
+      <div style={modalStyles.traitCardTop}>
+        <div
+          style={{
+            ...modalStyles.traitIcon,
+            color: accent,
+            border: `1px solid ${isDanger ? "rgba(251,113,133,0.28)" : `${accent}44`}`,
+            background: isDanger ? "rgba(251,113,133,0.08)" : `${accent}14`,
+          }}
+        >
+          {isDanger ? "!" : "✦"}
+        </div>
+
+        <div style={modalStyles.traitTextWrap}>
+          <div style={modalStyles.traitLabel}>{item.label}</div>
+          <div
+            style={{
+              ...modalStyles.traitLevel,
+              color: isDanger ? "#fecdd3" : "#bbf7d0",
+            }}
+          >
+            {level.label}
+          </div>
+        </div>
+      </div>
+
+      <div style={modalStyles.traitDots}>
+        {[1, 2, 3, 4].map((dot) => (
+          <span
+            key={dot}
+            style={{
+              ...modalStyles.traitDot,
+              background:
+                dot <= level.dots
+                  ? accent
+                  : "rgba(148,163,184,0.22)",
+              boxShadow:
+                dot <= level.dots
+                  ? `0 0 12px ${isDanger ? "rgba(251,113,133,0.42)" : `${accent}66`}`
+                  : "none",
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TraitPanel({ title, items, color, variant = "ability" }) {
+  const isDanger = variant === "vulnerability";
+
+  return (
+    <div style={modalStyles.traitPanel}>
+      <div
+        style={{
+          ...modalStyles.traitPanelTitle,
+          ...(isDanger ? modalStyles.traitPanelTitleDanger : {}),
+        }}
+      >
+        <span>{isDanger ? "⚠" : "✦"}</span>
+        {title}
+      </div>
+
+      <div style={modalStyles.traitList}>
+        {(items || []).map((item) => (
+          <TraitCard
+            key={item.label}
+            item={item}
+            color={color}
+            variant={variant}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+const ROLE_VISUALS = {
+  assassin: {
+    start: "#ef4444",
+    end: "#b91c1c",
+    border: "rgba(254,202,202,0.55)",
+    shadow: "rgba(239,68,68,0.35)",
+  },
+  seer: {
+    start: "#8b5cf6",
+    end: "#5b21b6",
+    border: "rgba(221,214,254,0.55)",
+    shadow: "rgba(139,92,246,0.35)",
+  },
+  marauder: {
+    start: "#fb923c",
+    end: "#c2410c",
+    border: "rgba(254,215,170,0.55)",
+    shadow: "rgba(249,115,22,0.35)",
+  },
+  spectator: {
+    start: "#22d3ee",
+    end: "#0f766e",
+    border: "rgba(165,243,252,0.55)",
+    shadow: "rgba(6,182,212,0.35)",
+  },
+  criminal: {
+    start: "#64748b",
+    end: "#334155",
+    border: "rgba(203,213,225,0.55)",
+    shadow: "rgba(100,116,139,0.32)",
+  },
+  prisoner: {
+    start: "#c084fc",
+    end: "#7e22ce",
+    border: "rgba(233,213,255,0.55)",
+    shadow: "rgba(168,85,247,0.35)",
+  },
+  warrior: {
+    start: "#4ade80",
+    end: "#15803d",
+    border: "rgba(187,247,208,0.55)",
+    shadow: "rgba(34,197,94,0.35)",
+  },
+  reader: {
+    start: "#60a5fa",
+    end: "#1d4ed8",
+    border: "rgba(191,219,254,0.55)",
+    shadow: "rgba(59,130,246,0.35)",
+  },
+};
+
+function RoleLogoSvg({ roleKey }) {
+  const commonStroke = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+  };
+
+  switch (roleKey) {
+    case "assassin":
+      return (
+        <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
+          <path d="M6 18 18 6" {...commonStroke} />
+          <path d="M14.5 4.5 19.5 9.5" {...commonStroke} />
+          <path d="M5 19 8.5 18 6 15.5 5 19Z" fill="currentColor" />
+          <path d="M12 5 19 12" {...commonStroke} />
+        </svg>
+      );
+    case "seer":
+      return (
+        <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
+          <path d="M12 3 18 9c0 6-2.8 9.4-6 12-3.2-2.6-6-6-6-12l6-6Z" {...commonStroke} />
+          <circle cx="12" cy="12" r="2.6" {...commonStroke} />
+          <path d="M9.4 12c.8-.9 1.7-1.35 2.6-1.35.9 0 1.8.45 2.6 1.35" {...commonStroke} />
+        </svg>
+      );
+    case "marauder":
+      return (
+        <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
+          <path d="M12.5 3.5c2.2 3-1 4.3 1.2 6.9 1.1 1.2 2.8 1.8 2.8 4.1A4.5 4.5 0 0 1 12 19a4.8 4.8 0 0 1-4.8-4.9c0-2.4 1.4-3.7 2.8-5.2 1.5-1.7 1.7-3.1 2.5-5.4Z" {...commonStroke} />
+          <path d="M12 10.5c1.2 1.2 1.8 2 1.8 3.1A1.9 1.9 0 0 1 12 15.5a1.9 1.9 0 0 1-1.8-1.9c0-.9.5-1.6 1.8-3.1Z" fill="currentColor" opacity="0.9" />
+        </svg>
+      );
+    case "spectator":
+      return (
+        <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
+          <path d="M2.5 12s3.5-5.5 9.5-5.5S21.5 12 21.5 12s-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z" {...commonStroke} />
+          <circle cx="12" cy="12" r="2.7" {...commonStroke} />
+          <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+        </svg>
+      );
+    case "criminal":
+      return (
+        <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
+          <path d="M4 9.5c2.2-1.6 4.8-2.4 8-2.4 3.2 0 5.8.8 8 2.4l-2.2 6.2c-1.3 1-3.1 1.7-5.8 1.7s-4.5-.7-5.8-1.7L4 9.5Z" {...commonStroke} />
+          <path d="M8.2 10.8h.01M15.8 10.8h.01" {...commonStroke} />
+          <path d="M9.1 14c1 .6 1.9.8 2.9.8s1.9-.2 2.9-.8" {...commonStroke} />
+        </svg>
+      );
+    case "prisoner":
+      return (
+        <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
+          <circle cx="7.2" cy="9" r="3.2" {...commonStroke} />
+          <circle cx="16.8" cy="15" r="3.2" {...commonStroke} />
+          <path d="M9.9 10.7l4.2 2.6" {...commonStroke} />
+          <path d="M5.3 9h3.8M14.9 15h3.8" {...commonStroke} />
+        </svg>
+      );
+    case "warrior":
+      return (
+        <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
+          <path d="M12 3.5 18.5 6v5.1c0 4.1-2.5 6.8-6.5 9.4-4-2.6-6.5-5.3-6.5-9.4V6L12 3.5Z" {...commonStroke} />
+          <path d="M12 7.5v9" {...commonStroke} />
+          <path d="M8.8 10.2h6.4" {...commonStroke} />
+        </svg>
+      );
+    case "reader":
+      return (
+        <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
+          <path d="M5 6.5c1.5-.9 3-.9 4.8-.9 1.8 0 3.2.3 4.2 1.4v10.3c-1-.9-2.4-1.3-4.2-1.3-1.8 0-3.3.1-4.8.9V6.5Z" {...commonStroke} />
+          <path d="M19 6.5c-1.5-.9-3-.9-4.8-.9-1.8 0-3.2.3-4.2 1.4v10.3c1-.9 2.4-1.3 4.2-1.3 1.8 0 3.3.1 4.8.9V6.5Z" {...commonStroke} />
+          <path d="M10 8.5c.8-.45 1.8-.7 3-.7" {...commonStroke} />
+        </svg>
+      );
+    default:
+      return (
+        <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
+          <circle cx="12" cy="12" r="8" {...commonStroke} />
+          <path d="M12 8v4l2.5 2.5" {...commonStroke} />
+        </svg>
+      );
+  }
+}
+
+function RoleLogo({ roleKey, size = 42 }) {
+  const roleIcon = ROLE_SKILL_CONFIGS[roleKey]?.icon || "🎮";
+
+  return (
+    <span
+      style={{
+        fontSize: Math.round(size * 0.52),
+        lineHeight: 1,
+        display: "block",
+      }}
+    >
+      {roleIcon}
+    </span>
+  );
+}
+
+/*
+  LOGO ASSET / SVG VERSION - sementara dikomentari.
+  Kalau nanti mau balikin logo PNG/SVG, aktifkan lagi:
+  - import seerLogo / spectatorLogo
+  - ROLE_IMAGE_ASSETS
+  - RoleLogoSvg
+  - RoleLogo versi asset/SVG
+
+function RoleLogo({ roleKey, size = 42 }) {
+  const imageAsset = ROLE_IMAGE_ASSETS[roleKey];
+
+  if (imageAsset) {
+  return (
+    <img
+      src={imageAsset}
+      alt={roleKey}
+      style={{
+        width: size,
+        height: size,
+        objectFit: "contain",
+        display: "block",
+        filter: "drop-shadow(0 4px 10px rgba(168,85,247,0.35))",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+  const visual = ROLE_VISUALS[roleKey] || {
+    start: "#7c5cff",
+    end: "#4338ca",
+    border: "rgba(255,255,255,0.42)",
+    shadow: "rgba(124,92,255,0.32)",
+  };
+
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: Math.max(14, Math.round(size * 0.34)),
+        display: "grid",
+        placeItems: "center",
+        position: "relative",
+        overflow: "hidden",
+        background: `radial-gradient(circle at 28% 22%, rgba(255,255,255,0.24), transparent 28%), linear-gradient(135deg, ${visual.start}, ${visual.end})`,
+        border: `1px solid ${visual.border}`,
+        boxShadow: `0 10px 26px ${visual.shadow}`,
+        flexShrink: 0,
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: 4,
+          borderRadius: Math.max(10, Math.round(size * 0.24)),
+          border: "1px solid rgba(255,255,255,0.16)",
+        }}
+      />
+
+      <div
+        style={{
+          width: size * 0.54,
+          height: size * 0.54,
+          color: "#ffffff",
+          position: "relative",
+          zIndex: 2,
+          filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.22))",
+        }}
+      >
+        <RoleLogoSvg roleKey={roleKey} />
+      </div>
+    </div>
+  );
+}
+*/
+
 const GAME_ROLES = Object.entries(ROLE_SKILL_CONFIGS).map(([key, value]) => ({
   key,
   name: value.name,
@@ -451,6 +939,11 @@ export default function LayoutNavbar({ session }) {
   const selectedRoleData = useMemo(
     () => getRoleByKey(selectedGameRole || savedGameRole),
     [selectedGameRole, savedGameRole],
+  );
+
+  const selectedRoleComparison = useMemo(
+    () => getRoleComparison(selectedRoleData?.key),
+    [selectedRoleData?.key],
   );
 
   const isRoleSetupRequired =
@@ -1099,7 +1592,7 @@ export default function LayoutNavbar({ session }) {
                           border: `1px solid ${role.color}55`,
                         }}
                       >
-                        {role.icon}
+                        <RoleLogo roleKey={role.key} size={38} />
                       </div>
 
                       {active && (
@@ -1123,7 +1616,7 @@ export default function LayoutNavbar({ session }) {
               >
                 <div style={modalStyles.skillHeader}>
                   <div style={modalStyles.skillRoleIcon}>
-                    {selectedRoleData.icon}
+                    <RoleLogo roleKey={selectedRoleData.key} size={44} />
                   </div>
 
                   <div>
@@ -1135,6 +1628,61 @@ export default function LayoutNavbar({ session }) {
                     </div>
                   </div>
                 </div>
+
+                <div style={modalStyles.roleSummaryPill}>
+                  {selectedRoleComparison.summary}
+                </div>
+
+                {/*
+                  BAR + PERSEN VERSION - sementara dikomentari.
+                  Kalau mau balik ke tampilan lama, aktifkan lagi MetricBar + metricGrid ini.
+
+                  <div style={modalStyles.metricGrid}>
+                    <div style={modalStyles.metricPanel}>
+                      <div style={modalStyles.metricTitle}>Ability</div>
+                      {selectedRoleComparison.ability.map((item) => (
+                        <MetricBar
+                          key={item.label}
+                          label={item.label}
+                          value={item.value}
+                          color={selectedRoleData.color}
+                        />
+                      ))}
+                    </div>
+
+                    <div style={modalStyles.metricPanel}>
+                      <div style={modalStyles.metricTitleDanger}>
+                        Vulnerability
+                      </div>
+                      {selectedRoleComparison.vulnerability.map((item) => (
+                        <MetricBar
+                          key={item.label}
+                          label={item.label}
+                          value={item.value}
+                          color={selectedRoleData.color}
+                          variant="vulnerability"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                */}
+
+                <div style={modalStyles.traitGrid}>
+                  <TraitPanel
+                    title="Ability"
+                    items={selectedRoleComparison.ability}
+                    color={selectedRoleData.color}
+                  />
+
+                  <TraitPanel
+                    title="Vulnerability"
+                    items={selectedRoleComparison.vulnerability}
+                    color={selectedRoleData.color}
+                    variant="vulnerability"
+                  />
+                </div>
+
+                <div style={modalStyles.skillMiniTitle}>Skill Ringkas</div>
 
                 <div style={modalStyles.skillList}>
                   {selectedRoleData.skills.map((skill) => (
@@ -1153,9 +1701,11 @@ export default function LayoutNavbar({ session }) {
                         </span>
                       </div>
 
-                      <div style={modalStyles.skillDesc}>{skill.desc}</div>
+                      <div style={modalStyles.skillDesc}>
+                        {getCompactSkillEffect(skill.desc)}
+                      </div>
                       <div style={modalStyles.skillSupport}>
-                        Bisa dipakai: {skill.support}
+                        Tipe soal: {skill.support}
                       </div>
                     </div>
                   ))}
@@ -2188,6 +2738,205 @@ const modalStyles = {
   skillRoleDesc: {
     color: "rgba(230,236,255,0.62)",
     fontSize: 12,
+  },
+
+  roleSummaryPill: {
+    marginBottom: 12,
+    borderRadius: 14,
+    padding: "10px 12px",
+    color: "rgba(248,250,252,0.84)",
+    fontSize: 12,
+    lineHeight: 1.5,
+    fontWeight: 700,
+    background: "rgba(255,255,255,0.045)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+
+  traitGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: 12,
+    marginBottom: 14,
+  },
+
+  traitPanel: {
+    borderRadius: 16,
+    padding: 12,
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.030)",
+  },
+
+  traitPanelTitle: {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    color: "#bbf7d0",
+    fontSize: 12,
+    fontWeight: 950,
+    marginBottom: 10,
+    letterSpacing: 0.2,
+    textTransform: "uppercase",
+  },
+
+  traitPanelTitleDanger: {
+    color: "#fecdd3",
+  },
+
+  traitList: {
+    display: "grid",
+    gap: 8,
+  },
+
+  traitCard: {
+    borderRadius: 14,
+    padding: 10,
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(15,23,42,0.44)",
+  },
+
+  traitCardAbility: {
+    boxShadow: "inset 0 0 18px rgba(60,255,201,0.035)",
+  },
+
+  traitCardDanger: {
+    boxShadow: "inset 0 0 18px rgba(251,113,133,0.035)",
+  },
+
+  traitCardTop: {
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
+    marginBottom: 9,
+  },
+
+  traitIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 10,
+    display: "grid",
+    placeItems: "center",
+    fontSize: 13,
+    fontWeight: 950,
+    flexShrink: 0,
+  },
+
+  traitTextWrap: {
+    minWidth: 0,
+    flex: 1,
+  },
+
+  traitLabel: {
+    color: "#E6ECFF",
+    fontSize: 12,
+    fontWeight: 950,
+    lineHeight: 1.2,
+  },
+
+  traitLevel: {
+    fontSize: 10,
+    fontWeight: 900,
+    marginTop: 3,
+    opacity: 0.9,
+  },
+
+  traitDots: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+  },
+
+  traitDot: {
+    width: 18,
+    height: 5,
+    borderRadius: 999,
+    display: "block",
+  },
+
+  /*
+    STYLE BAR + PERSEN VERSION - sementara dikomentari.
+    Style metric di bawah ini tidak dipakai selama TraitPanel aktif.
+  */
+
+  metricGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: 10,
+    marginBottom: 14,
+  },
+
+  metricPanel: {
+    borderRadius: 15,
+    padding: 12,
+    background: "rgba(255,255,255,0.035)",
+    border: "1px solid rgba(255,255,255,0.08)",
+  },
+
+  metricTitle: {
+    color: "#bbf7d0",
+    fontSize: 12,
+    fontWeight: 950,
+    marginBottom: 10,
+  },
+
+  metricTitleDanger: {
+    color: "#fde68a",
+    fontSize: 12,
+    fontWeight: 950,
+    marginBottom: 10,
+  },
+
+  metricItem: {
+    marginBottom: 10,
+  },
+
+  metricTop: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 6,
+  },
+
+  metricLabel: {
+    color: "rgba(230,236,255,0.72)",
+    fontSize: 11,
+    fontWeight: 800,
+    lineHeight: 1.3,
+  },
+
+  metricValue: {
+    minWidth: 38,
+    textAlign: "right",
+    fontSize: 11,
+    fontWeight: 950,
+  },
+
+  metricValueAbility: {
+    color: "#bbf7d0",
+  },
+
+  metricValueDanger: {
+    color: "#fecaca",
+  },
+
+  metricBarOuter: {
+    height: 8,
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.07)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    overflow: "hidden",
+  },
+
+  metricBarInner: {
+    height: "100%",
+    borderRadius: 999,
+  },
+
+  skillMiniTitle: {
+    color: "rgba(230,236,255,0.86)",
+    fontSize: 12,
+    fontWeight: 950,
+    marginBottom: 9,
   },
 
   skillList: {
