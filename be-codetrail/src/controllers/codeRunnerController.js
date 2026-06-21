@@ -141,8 +141,13 @@ const runJavaTestcases = async ({
           ? testcase.expected_output
           : testcase.expected;
 
+      const sanitizedCode = code.replace(
+        /public\s+class\s+([A-Za-z_][A-Za-z0-9_]*)/,
+        "class $1",
+      );
+
       const mainCode = buildJavaMainFile({
-        userCode: code,
+        userCode: sanitizedCode,
         className,
         functionName: function_name,
         getterName: getter_name,
@@ -188,10 +193,7 @@ const runJavaTestcases = async ({
           expected_output: expectedOutput,
           actual_output: null,
           passed: false,
-          error:
-            runResult.stderr ||
-            runResult.error.message ||
-            "Runtime error",
+          error: runResult.stderr || runResult.error.message || "Runtime error",
         });
 
         continue;
