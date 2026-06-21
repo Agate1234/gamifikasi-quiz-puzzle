@@ -480,11 +480,14 @@ const ROLE_COMPARISON_CONFIG = {
   },
 };
 function getRoleComparison(roleKey) {
-  return ROLE_COMPARISON_CONFIG[roleKey] || {
-    ability: [],
-    vulnerability: [],
-    summary: "Pilih role untuk melihat kemampuan dan risikonya secara ringkas.",
-  };
+  return (
+    ROLE_COMPARISON_CONFIG[roleKey] || {
+      ability: [],
+      vulnerability: [],
+      summary:
+        "Pilih role untuk melihat kemampuan dan risikonya secara ringkas.",
+    }
+  );
 }
 
 function getCompactSkillEffect(text = "") {
@@ -553,7 +556,9 @@ function TraitCard({ item, color, variant = "ability" }) {
     <div
       style={{
         ...modalStyles.traitCard,
-        ...(isDanger ? modalStyles.traitCardDanger : modalStyles.traitCardAbility),
+        ...(isDanger
+          ? modalStyles.traitCardDanger
+          : modalStyles.traitCardAbility),
       }}
     >
       <div style={modalStyles.traitCardTop}>
@@ -587,10 +592,7 @@ function TraitCard({ item, color, variant = "ability" }) {
             key={dot}
             style={{
               ...modalStyles.traitDot,
-              background:
-                dot <= level.dots
-                  ? accent
-                  : "rgba(148,163,184,0.22)",
+              background: dot <= level.dots ? accent : "rgba(148,163,184,0.22)",
               boxShadow:
                 dot <= level.dots
                   ? `0 0 12px ${isDanger ? "rgba(251,113,133,0.42)" : `${accent}66`}`
@@ -631,7 +633,6 @@ function TraitPanel({ title, items, color, variant = "ability" }) {
     </div>
   );
 }
-
 
 const ROLE_VISUALS = {
   assassin: {
@@ -706,22 +707,38 @@ function RoleLogoSvg({ roleKey }) {
     case "seer":
       return (
         <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
-          <path d="M12 3 18 9c0 6-2.8 9.4-6 12-3.2-2.6-6-6-6-12l6-6Z" {...commonStroke} />
+          <path
+            d="M12 3 18 9c0 6-2.8 9.4-6 12-3.2-2.6-6-6-6-12l6-6Z"
+            {...commonStroke}
+          />
           <circle cx="12" cy="12" r="2.6" {...commonStroke} />
-          <path d="M9.4 12c.8-.9 1.7-1.35 2.6-1.35.9 0 1.8.45 2.6 1.35" {...commonStroke} />
+          <path
+            d="M9.4 12c.8-.9 1.7-1.35 2.6-1.35.9 0 1.8.45 2.6 1.35"
+            {...commonStroke}
+          />
         </svg>
       );
     case "marauder":
       return (
         <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
-          <path d="M12.5 3.5c2.2 3-1 4.3 1.2 6.9 1.1 1.2 2.8 1.8 2.8 4.1A4.5 4.5 0 0 1 12 19a4.8 4.8 0 0 1-4.8-4.9c0-2.4 1.4-3.7 2.8-5.2 1.5-1.7 1.7-3.1 2.5-5.4Z" {...commonStroke} />
-          <path d="M12 10.5c1.2 1.2 1.8 2 1.8 3.1A1.9 1.9 0 0 1 12 15.5a1.9 1.9 0 0 1-1.8-1.9c0-.9.5-1.6 1.8-3.1Z" fill="currentColor" opacity="0.9" />
+          <path
+            d="M12.5 3.5c2.2 3-1 4.3 1.2 6.9 1.1 1.2 2.8 1.8 2.8 4.1A4.5 4.5 0 0 1 12 19a4.8 4.8 0 0 1-4.8-4.9c0-2.4 1.4-3.7 2.8-5.2 1.5-1.7 1.7-3.1 2.5-5.4Z"
+            {...commonStroke}
+          />
+          <path
+            d="M12 10.5c1.2 1.2 1.8 2 1.8 3.1A1.9 1.9 0 0 1 12 15.5a1.9 1.9 0 0 1-1.8-1.9c0-.9.5-1.6 1.8-3.1Z"
+            fill="currentColor"
+            opacity="0.9"
+          />
         </svg>
       );
     case "spectator":
       return (
         <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
-          <path d="M2.5 12s3.5-5.5 9.5-5.5S21.5 12 21.5 12s-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z" {...commonStroke} />
+          <path
+            d="M2.5 12s3.5-5.5 9.5-5.5S21.5 12 21.5 12s-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z"
+            {...commonStroke}
+          />
           <circle cx="12" cy="12" r="2.7" {...commonStroke} />
           <circle cx="12" cy="12" r="1.2" fill="currentColor" />
         </svg>
@@ -729,7 +746,10 @@ function RoleLogoSvg({ roleKey }) {
     case "criminal":
       return (
         <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
-          <path d="M4 9.5c2.2-1.6 4.8-2.4 8-2.4 3.2 0 5.8.8 8 2.4l-2.2 6.2c-1.3 1-3.1 1.7-5.8 1.7s-4.5-.7-5.8-1.7L4 9.5Z" {...commonStroke} />
+          <path
+            d="M4 9.5c2.2-1.6 4.8-2.4 8-2.4 3.2 0 5.8.8 8 2.4l-2.2 6.2c-1.3 1-3.1 1.7-5.8 1.7s-4.5-.7-5.8-1.7L4 9.5Z"
+            {...commonStroke}
+          />
           <path d="M8.2 10.8h.01M15.8 10.8h.01" {...commonStroke} />
           <path d="M9.1 14c1 .6 1.9.8 2.9.8s1.9-.2 2.9-.8" {...commonStroke} />
         </svg>
@@ -746,7 +766,10 @@ function RoleLogoSvg({ roleKey }) {
     case "warrior":
       return (
         <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
-          <path d="M12 3.5 18.5 6v5.1c0 4.1-2.5 6.8-6.5 9.4-4-2.6-6.5-5.3-6.5-9.4V6L12 3.5Z" {...commonStroke} />
+          <path
+            d="M12 3.5 18.5 6v5.1c0 4.1-2.5 6.8-6.5 9.4-4-2.6-6.5-5.3-6.5-9.4V6L12 3.5Z"
+            {...commonStroke}
+          />
           <path d="M12 7.5v9" {...commonStroke} />
           <path d="M8.8 10.2h6.4" {...commonStroke} />
         </svg>
@@ -754,8 +777,14 @@ function RoleLogoSvg({ roleKey }) {
     case "reader":
       return (
         <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true">
-          <path d="M5 6.5c1.5-.9 3-.9 4.8-.9 1.8 0 3.2.3 4.2 1.4v10.3c-1-.9-2.4-1.3-4.2-1.3-1.8 0-3.3.1-4.8.9V6.5Z" {...commonStroke} />
-          <path d="M19 6.5c-1.5-.9-3-.9-4.8-.9-1.8 0-3.2.3-4.2 1.4v10.3c1-.9 2.4-1.3 4.2-1.3 1.8 0 3.3.1 4.8.9V6.5Z" {...commonStroke} />
+          <path
+            d="M5 6.5c1.5-.9 3-.9 4.8-.9 1.8 0 3.2.3 4.2 1.4v10.3c-1-.9-2.4-1.3-4.2-1.3-1.8 0-3.3.1-4.8.9V6.5Z"
+            {...commonStroke}
+          />
+          <path
+            d="M19 6.5c-1.5-.9-3-.9-4.8-.9-1.8 0-3.2.3-4.2 1.4v10.3c1-.9 2.4-1.3 4.2-1.3 1.8 0 3.3.1 4.8.9V6.5Z"
+            {...commonStroke}
+          />
           <path d="M10 8.5c.8-.45 1.8-.7 3-.7" {...commonStroke} />
         </svg>
       );
@@ -1163,7 +1192,9 @@ export default function LayoutNavbar({ session }) {
         payload.password = values.password.trim();
       }
 
-      const currentAvailableRole = normalizeAvailableGameRole(profile?.game_role);
+      const currentAvailableRole = normalizeAvailableGameRole(
+        profile?.game_role,
+      );
 
       if (!currentAvailableRole && selectedGameRole) {
         payload.game_role = selectedGameRole;
@@ -1295,7 +1326,10 @@ export default function LayoutNavbar({ session }) {
             style={styles.brand}
           >
             <div style={styles.logoBox}>
-              <CodeOutlined style={{ color: "#7C5CFF", fontSize: 18 }} />
+              <span style={styles.logoText}>CT</span>
+              <span style={styles.logoDotA} />
+              <span style={styles.logoDotB} />
+              <span style={styles.logoTrail} />
             </div>
 
             <div style={styles.brandText}>
@@ -2293,9 +2327,59 @@ const styles = {
     borderRadius: 14,
     display: "grid",
     placeItems: "center",
-    background: "rgba(124,92,255,0.18)",
-    border: "1px solid rgba(124,92,255,0.25)",
+    position: "relative",
+    overflow: "hidden",
+    border: "1px solid rgba(60,255,201,0.30)",
+    background:
+      "radial-gradient(circle at 30% 25%, rgba(60,255,201,0.18), transparent 48%), rgba(255,255,255,0.03)",
+    boxShadow:
+      "0 0 16px rgba(60,255,201,0.13), inset 0 0 10px rgba(255,255,255,0.03)",
     flexShrink: 0,
+  },
+
+  logoText: {
+    fontSize: 18,
+    fontWeight: 950,
+    letterSpacing: -2,
+    paddingRight: 2,
+    position: "relative",
+    top: -2, // atau -3 kalau masih kurang
+    background:
+      "linear-gradient(135deg, rgba(60,255,201,1), rgba(140,86,255,1))",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+  },
+
+  logoTrail: {
+    position: "absolute",
+    width: 22,
+    height: 2,
+    left: 8,
+    bottom: 9,
+    borderRadius: 999,
+    background:
+      "linear-gradient(90deg, rgba(60,255,201,0.95), rgba(140,86,255,0.95))",
+    transform: "rotate(-20deg)",
+  },
+
+  logoDotA: {
+    position: "absolute",
+    width: 4,
+    height: 4,
+    left: 8,
+    bottom: 6,
+    borderRadius: 999,
+    background: "rgba(60,255,201,1)",
+  },
+
+  logoDotB: {
+    position: "absolute",
+    width: 4,
+    height: 4,
+    right: 8,
+    bottom: 13,
+    borderRadius: 999,
+    background: "rgba(140,86,255,1)",
   },
 
   brandText: {

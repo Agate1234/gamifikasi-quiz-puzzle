@@ -1088,7 +1088,7 @@ export default function ModulePage({
             <div style={M.listHeader}>
               <div style={M.sectionTitle}>
                 {tab === "materi"
-                  ? "Node Materi"
+                  ? "Daftar Materi"
                   : tab === "kuis"
                     ? "Daftar Kuis"
                     : "Daftar Puzzle"}
@@ -1283,8 +1283,8 @@ const M = {
     position: "fixed",
     inset: 0,
     zIndex: 9999,
-    background: "rgba(0,0,0,0.55)",
-    backdropFilter: "blur(6px)",
+    background: "rgba(2,6,23,0.78)",
+    backdropFilter: "blur(10px)",
     display: "flex",
     justifyContent: "center",
     alignItems: "stretch",
@@ -1293,9 +1293,8 @@ const M = {
   sheet: {
     width: "100%",
     height: "100%",
-    background:
-      "radial-gradient(1000px 600px at 60% 20%, rgba(92,255,210,0.10) 0%, rgba(80,90,255,0.10) 25%, rgba(10,12,22,1) 60%)",
-    color: "rgba(235,240,255,0.92)",
+    background: "#020617",
+    color: "#F8FAFC",
     fontFamily:
       "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial",
     overflow: "hidden",
@@ -1306,9 +1305,10 @@ const M = {
     justifyContent: "space-between",
     alignItems: "center",
     gap: 12,
-    padding: "14px 18px",
-    borderBottom: "1px solid rgba(255,255,255,0.06)",
-    background: "rgba(255,255,255,0.02)",
+    padding: "16px 24px",
+    borderBottom: "1px solid rgba(148,163,184,0.08)",
+    background: "#0F172A",
+    backdropFilter: "blur(12px)",
   },
 
   breadcrumb: {
@@ -1319,24 +1319,29 @@ const M = {
   },
 
   breadcrumbStrong: {
-    fontSize: 12,
-    fontWeight: 700,
-    opacity: 0.95,
+    fontSize: 13,
+    fontWeight: 800,
+    color: "#F8FAFC",
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
   },
 
-  muted: { fontSize: 12, opacity: 0.7 },
+  muted: {
+    fontSize: 12,
+    color: "#64748B",
+  },
 
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.02)",
-    color: "rgba(235,240,255,0.92)",
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    border: "1px solid rgba(148,163,184,0.12)",
+    background: "#111827",
+    color: "#E2E8F0",
     cursor: "pointer",
+    fontSize: 17,
+    transition: "all .2s ease",
   },
 
   topRight: {
@@ -1347,205 +1352,211 @@ const M = {
 
   pillSmall: {
     fontSize: 12,
-    padding: "8px 10px",
+    padding: "8px 14px",
     borderRadius: 999,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.02)",
-    opacity: 0.9,
+    border: "1px solid rgba(148,163,184,0.08)",
+    background: "#111827",
+    color: "#CBD5E1",
+    fontWeight: 600,
   },
 
   circleBtn: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: 999,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.02)",
+    border: "1px solid rgba(148,163,184,0.08)",
+    background: "#111827",
     display: "grid",
     placeItems: "center",
     cursor: "pointer",
+    color: "#E2E8F0",
   },
 
   content: {
-    height: "calc(100% - 68px)",
+    height: "calc(100% - 74px)",
     overflowY: "auto",
-    padding: 18,
+    padding: 26,
   },
 
   hero: {
-    borderRadius: 18,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background:
-      "linear-gradient(180deg, rgba(130,90,255,0.18), rgba(255,255,255,0.03))",
-    padding: 18,
+    borderRadius: 30,
+    border: "1px solid rgba(148,163,184,0.08)",
+    background: "#0F172A",
+    padding: 32,
     display: "flex",
     justifyContent: "space-between",
-    gap: 16,
+    gap: 28,
     flexWrap: "wrap",
+    boxShadow: "0 20px 60px rgba(0,0,0,0.45)",
+    position: "relative",
+    overflow: "hidden",
   },
 
-  heroLeft: { minWidth: 0, flex: 1 },
+  heroLeft: {
+    minWidth: 0,
+    flex: 1,
+    zIndex: 2,
+  },
 
   heroTags: {
     display: "flex",
-    gap: 8,
-    marginBottom: 10,
+    gap: 10,
+    marginBottom: 16,
     flexWrap: "wrap",
   },
 
   tag: {
     fontSize: 11,
-    padding: "4px 10px",
+    padding: "6px 12px",
     borderRadius: 999,
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    opacity: 0.9,
+    background: "#1E293B",
+    border: "1px solid rgba(148,163,184,0.10)",
+    color: "#CBD5E1",
+    fontWeight: 700,
+    letterSpacing: 0.4,
   },
 
   heroTitle: {
-    fontSize: 28,
+    fontSize: 40,
     fontWeight: 900,
-    letterSpacing: 0.2,
+    lineHeight: 1.05,
+    color: "#FFFFFF",
+    letterSpacing: "-1px",
   },
 
   heroDesc: {
-    marginTop: 8,
-    fontSize: 13,
-    opacity: 0.78,
-    lineHeight: 1.6,
-    maxWidth: 820,
+    marginTop: 16,
+    fontSize: 14,
+    color: "#94A3B8",
+    lineHeight: 1.9,
+    maxWidth: 760,
   },
 
-  heroProgressWrap: { marginTop: 12 },
+  heroProgressWrap: {
+    marginTop: 24,
+  },
 
   heroProgressText: {
     fontSize: 12,
-    opacity: 0.75,
-    marginBottom: 8,
+    color: "#94A3B8",
+    marginBottom: 10,
+    fontWeight: 600,
   },
 
   progressOuter: {
-    height: 10,
+    height: 12,
     borderRadius: 999,
-    background: "rgba(255,255,255,0.08)",
+    background: "#1E293B",
     overflow: "hidden",
-    border: "1px solid rgba(255,255,255,0.08)",
+    border: "1px solid rgba(148,163,184,0.08)",
     maxWidth: 720,
   },
 
   progressInner: {
     height: "100%",
     borderRadius: 999,
-    background:
-      "linear-gradient(90deg, rgba(60,255,201,0.85), rgba(140,86,255,0.85))",
+    background: "#6366F1",
+    boxShadow: "0 0 18px rgba(99,102,241,0.45)",
+    transition: "width .35s ease",
   },
 
   tabs: {
-    marginTop: 14,
+    marginTop: 22,
     display: "flex",
-    gap: 10,
+    gap: 12,
     flexWrap: "wrap",
   },
 
   tabBtn: {
-    padding: "10px 14px",
-    borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.02)",
-    color: "rgba(235,240,255,0.92)",
+    padding: "12px 18px",
+    borderRadius: 14,
+    border: "1px solid rgba(148,163,184,0.08)",
+    background: "#111827",
+    color: "#CBD5E1",
     cursor: "pointer",
-    fontWeight: 650,
-    fontSize: 12,
+    fontWeight: 700,
+    fontSize: 13,
+    transition: "all .2s ease",
   },
 
   tabBtnActive: {
-    border: "1px solid rgba(120,90,255,0.30)",
-    background: "rgba(120,90,255,0.16)",
+    background: "#4F46E5",
+    border: "1px solid rgba(99,102,241,0.35)",
+    color: "#fff",
+    boxShadow: "0 8px 24px rgba(79,70,229,0.35)",
   },
 
   heroRight: {
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "flex-end",
-    alignSelf: "flex-start",
-    minWidth: "unset",
+    zIndex: 2,
   },
 
   heroXP: {
-    width: 245,
-    padding: "15px 12px",
-    borderRadius: 16,
-    border: "1px solid rgba(140,86,255,0.22)",
-    background:
-      "linear-gradient(180deg, rgba(22,18,45,0.92), rgba(14,12,30,0.86))",
-    boxShadow: "0 10px 24px rgba(0,0,0,0.18)",
+    width: 270,
+    padding: "20px 18px",
+    borderRadius: 24,
+    border: "1px solid rgba(148,163,184,0.08)",
+    background: "#111827",
+    boxShadow: "0 14px 40px rgba(0,0,0,0.35)",
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: 14,
   },
 
   heroXPTop: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 8,
+    gap: 10,
   },
 
   heroXPBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     display: "grid",
     placeItems: "center",
-    fontSize: 15,
-    border: "1px solid rgba(140,86,255,0.28)",
-    background: "rgba(140,86,255,0.14)",
-    flexShrink: 0,
+    fontSize: 20,
+    border: "1px solid rgba(99,102,241,0.18)",
+    background: "#1E293B",
+    color: "#A5B4FC",
   },
 
   heroXPLabel: {
-    fontSize: 11,
-    fontWeight: 700,
-    opacity: 0.82,
-    lineHeight: 1.1,
+    fontSize: 12,
+    fontWeight: 800,
+    color: "#E2E8F0",
   },
 
   heroXPSub: {
-    marginTop: 2,
-    fontSize: 10,
-    opacity: 0.58,
-    lineHeight: 1.2,
+    marginTop: 4,
+    fontSize: 11,
+    color: "#64748B",
   },
 
   heroXPValue: {
-    fontSize: 22,
+    fontSize: 34,
     fontWeight: 900,
+    color: "#818CF8",
     lineHeight: 1,
-    color: "rgba(180,120,255,0.98)",
-  },
-
-  puzzleBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    border: "1px solid rgba(120,90,255,0.30)",
-    background: "rgba(120,90,255,0.16)",
-    display: "grid",
-    placeItems: "center",
   },
 
   listHeader: {
-    marginTop: 16,
+    marginTop: 28,
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
     flexWrap: "wrap",
   },
 
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: 900,
-    opacity: 0.95,
+    color: "#F8FAFC",
+    letterSpacing: "-0.4px",
   },
 
   listHeaderRight: {
@@ -1556,34 +1567,36 @@ const M = {
 
   pillMeta: {
     fontSize: 12,
-    padding: "8px 10px",
+    padding: "8px 14px",
     borderRadius: 999,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.02)",
-    opacity: 0.9,
+    border: "1px solid rgba(148,163,184,0.08)",
+    background: "#111827",
+    color: "#CBD5E1",
+    fontWeight: 600,
   },
 
   list: {
-    marginTop: 18,
+    marginTop: 24,
     display: "flex",
     flexDirection: "column",
     gap: 12,
   },
 
   empty: {
-    padding: 14,
-    borderRadius: 14,
-    border: "1px dashed rgba(255,255,255,0.14)",
-    background: "rgba(255,255,255,0.02)",
-    opacity: 0.75,
+    padding: 20,
+    borderRadius: 20,
+    border: "1px dashed rgba(148,163,184,0.12)",
+    background: "#0F172A",
+    color: "#64748B",
     textAlign: "center",
+    fontSize: 14,
   },
 
   pathWrap: {
     width: "100%",
     display: "flex",
     justifyContent: "center",
-    padding: "24px 0 12px",
+    padding: "34px 0 24px",
   },
 
   pathInner: {
@@ -1606,60 +1619,62 @@ const M = {
     left: 0,
     right: 0,
     display: "flex",
-    minHeight: 88,
+    minHeight: 96,
     zIndex: 2,
   },
 
   pathNode: {
-    width: 88,
-    height: 88,
+    width: 96,
+    height: 96,
     borderRadius: 999,
-    border: "2px solid rgba(140,86,255,0.45)",
-    background: "rgba(140,86,255,0.14)",
-    color: "rgba(235,240,255,0.96)",
+    border: "2px solid rgba(99,102,241,0.22)",
+    background: "#111827",
+    color: "#F8FAFC",
     cursor: "pointer",
     display: "grid",
     placeItems: "center",
     fontSize: 24,
     fontWeight: 900,
-    boxShadow: "0 12px 30px rgba(0,0,0,0.28)",
+    boxShadow: "0 14px 36px rgba(0,0,0,0.35)",
+    transition: "all .2s ease",
   },
 
   pathNodeDone: {
-    border: "2px solid rgba(60,255,201,0.45)",
-    background: "rgba(60,255,201,0.14)",
-    boxShadow: "0 0 24px rgba(60,255,201,0.14)",
+    border: "2px solid rgba(34,197,94,0.28)",
+    background: "#052E16",
+    color: "#BBF7D0",
+    boxShadow: "0 0 24px rgba(34,197,94,0.15)",
   },
 
   pathNodeActive: {
-    border: "2px solid rgba(140,86,255,0.52)",
-    background: "rgba(140,86,255,0.20)",
-    boxShadow: "0 0 24px rgba(140,86,255,0.18)",
+    border: "2px solid rgba(99,102,241,0.40)",
+    boxShadow: "0 0 24px rgba(99,102,241,0.18)",
   },
 
   pathNodeCurrent: {
-    border: "2px solid rgba(60,255,201,0.95)",
-    background:
-      "radial-gradient(circle at 30% 25%, rgba(60,255,201,0.34), rgba(140,86,255,0.24) 48%, rgba(18,20,38,0.96) 100%)",
-    boxShadow:
-      "0 0 0 5px rgba(60,255,201,0.10), 0 0 34px rgba(60,255,201,0.32), 0 0 58px rgba(140,86,255,0.22)",
+    border: "2px solid #22C55E",
+    background: "#0B1120",
+    boxShadow: `
+      0 0 0 6px rgba(34,197,94,0.10),
+      0 0 26px rgba(34,197,94,0.18)
+    `,
   },
 
   pathNodeLocked: {
-    border: "2px solid rgba(255,255,255,0.10)",
-    background: "rgba(255,255,255,0.025)",
-    opacity: 0.68,
+    border: "2px solid rgba(148,163,184,0.08)",
+    background: "#0F172A",
+    opacity: 0.45,
   },
 
   pathNodeInner: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
   },
 
   pathNodeIndex: {
-    fontSize: 24,
+    fontSize: 25,
     fontWeight: 900,
     lineHeight: 1,
   },
@@ -1667,7 +1682,7 @@ const M = {
   pathNodeType: {
     fontSize: 10,
     fontWeight: 700,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     opacity: 0.8,
     textTransform: "uppercase",
   },
@@ -1676,83 +1691,84 @@ const M = {
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
-    minWidth: 170,
-    maxWidth: 220,
-    padding: "10px 12px",
-    borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(255,255,255,0.03)",
-    backdropFilter: "blur(8px)",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+    minWidth: 200,
+    maxWidth: 250,
+    padding: "16px 18px",
+    borderRadius: 20,
+    border: "1px solid rgba(148,163,184,0.08)",
+    background: "#111827",
+    boxShadow: "0 16px 40px rgba(0,0,0,0.30)",
   },
 
   pathLabelCardCurrent: {
-    border: "1px solid rgba(60,255,201,0.42)",
-    background:
-      "linear-gradient(180deg, rgba(15,31,42,0.96), rgba(17,18,36,0.94))",
-    boxShadow:
-      "0 14px 34px rgba(0,0,0,0.22), 0 0 24px rgba(60,255,201,0.18)",
+    border: "1px solid rgba(34,197,94,0.22)",
+    boxShadow: `
+      0 18px 44px rgba(0,0,0,0.35),
+      0 0 20px rgba(34,197,94,0.10)
+    `,
   },
 
   pathCurrentBadge: {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 7,
-    padding: "4px 8px",
+    marginBottom: 10,
+    padding: "5px 10px",
     borderRadius: 999,
-    border: "1px solid rgba(60,255,201,0.28)",
-    background: "rgba(60,255,201,0.12)",
-    color: "rgba(166,255,231,0.98)",
+    border: "1px solid rgba(34,197,94,0.14)",
+    background: "rgba(34,197,94,0.10)",
+    color: "#86EFAC",
     fontSize: 10,
     fontWeight: 900,
-    letterSpacing: 0.4,
+    letterSpacing: 0.6,
     textTransform: "uppercase",
   },
 
   pathLabelCardLeft: {
-    left: 110,
+    left: 125,
   },
 
   pathLabelCardRight: {
-    right: 110,
+    right: 125,
     textAlign: "right",
   },
 
   pathLabelTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 800,
-    color: "rgba(235,240,255,0.96)",
+    color: "#F8FAFC",
+    lineHeight: 1.4,
   },
 
   pathLabelMeta: {
-    marginTop: 4,
+    marginTop: 6,
     fontSize: 11,
-    opacity: 0.72,
-    lineHeight: 1.5,
+    color: "#64748B",
+    lineHeight: 1.7,
   },
 
   pathPuzzleActions: {
     display: "flex",
     gap: 8,
-    marginTop: 10,
+    marginTop: 12,
     justifyContent: "flex-end",
     flexWrap: "wrap",
   },
 
   pathMiniBtn: {
-    padding: "7px 10px",
-    borderRadius: 10,
-    border: "1px solid rgba(120,90,255,0.30)",
-    background: "rgba(120,90,255,0.16)",
-    color: "rgba(235,240,255,0.92)",
+    padding: "8px 12px",
+    borderRadius: 12,
+    border: "1px solid rgba(148,163,184,0.08)",
+    background: "#1E293B",
+    color: "#F8FAFC",
     cursor: "pointer",
     fontSize: 11,
     fontWeight: 800,
+    transition: "all .2s ease",
   },
 
   pathMiniBtnDisabled: {
-    opacity: 0.5,
+    opacity: 0.45,
     cursor: "not-allowed",
   },
 };

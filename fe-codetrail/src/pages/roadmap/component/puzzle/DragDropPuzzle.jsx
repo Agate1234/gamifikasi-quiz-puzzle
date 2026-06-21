@@ -35,7 +35,10 @@ export default function DragDropPuzzle({
   const { secondsElapsed, timeMM, timeSS, timeText } = usePuzzleTimer(
     open,
     Number(puzzle?.waktu || 0),
-    puzzle?.id_progress_puzzle || puzzle?.id_puzzle || puzzle?.id || "drag-drop",
+    puzzle?.id_progress_puzzle ||
+      puzzle?.id_puzzle ||
+      puzzle?.id ||
+      "drag-drop",
   );
   const [popupNotif, setPopupNotif] = useState(null);
   const [snippets, setSnippets] = useState([]);
@@ -47,7 +50,6 @@ export default function DragDropPuzzle({
   );
 
   const isDone = isSolved;
-
 
   const items = useMemo(() => {
     const raw = detail.items || [];
@@ -454,7 +456,7 @@ export default function DragDropPuzzle({
     } catch (error) {
       console.error("Gagal update attempt puzzle:", error);
 
-       showPopupNotif({
+      showPopupNotif({
         type: "error",
         title: "error",
         message: "Terjadi error saat menyimpan jawaban puzzle.",
@@ -495,7 +497,7 @@ export default function DragDropPuzzle({
               <div style={P.title}>{puzzleTitle}</div>
 
               <div style={P.desc}>
-                {detail.instruksi ||
+                {puzzle?.deskripsi_puzzle ||
                   "Susun potongan kode sesuai urutan yang benar."}
               </div>
             </div>
@@ -535,9 +537,13 @@ export default function DragDropPuzzle({
                 ))}
               </div>
 
-              <div style={P.tip}>
-                Drag potongan kode ke editor sebelah kanan sesuai urutan yang
-                benar.
+              <div
+                style={{
+                  ...P.tip,
+                  whiteSpace: "pre-line",
+                }}
+              >
+                {detail?.instruksi}
               </div>
 
               <div style={P.reward}>
@@ -562,7 +568,11 @@ export default function DragDropPuzzle({
                     <span style={P.dot} />
                     <span style={P.dot} />
                   </div>
-                  <div style={P.fileTab}>solution.sql</div>
+                  <div style={P.fileTab}>
+                    {detail.language === "java"
+                      ? "Solution.java"
+                      : "solution.txt"}
+                  </div>
                 </div>
 
                 <div style={P.editorBody} data-tutor="drop-slots">
@@ -594,7 +604,11 @@ export default function DragDropPuzzle({
 
               <div style={P.actions}>
                 {!isDone ? (
-                  <button data-tutor="drag-submit" style={P.checkBtn} onClick={checkAnswer}>
+                  <button
+                    data-tutor="drag-submit"
+                    style={P.checkBtn}
+                    onClick={checkAnswer}
+                  >
                     Periksa Jawaban 🚀
                   </button>
                 ) : (
@@ -609,32 +623,34 @@ export default function DragDropPuzzle({
       </div>
 
       {popupNotif ? (
-  <div style={N.overlay} onMouseDown={(e) => e.stopPropagation()}>
-    <div style={N.card}>
-      <div
-        style={{
-          ...N.iconCircle,
-          ...(popupNotif.type === "success" ? N.successIcon : N.errorIcon),
-        }}
-      >
-        {popupNotif.type === "success" ? "✓" : "✕"}
-      </div>
+        <div style={N.overlay} onMouseDown={(e) => e.stopPropagation()}>
+          <div style={N.card}>
+            <div
+              style={{
+                ...N.iconCircle,
+                ...(popupNotif.type === "success"
+                  ? N.successIcon
+                  : N.errorIcon),
+              }}
+            >
+              {popupNotif.type === "success" ? "✓" : "✕"}
+            </div>
 
-      <div style={N.title}>{popupNotif.title}</div>
-      <div style={N.message}>{popupNotif.message}</div>
+            <div style={N.title}>{popupNotif.title}</div>
+            <div style={N.message}>{popupNotif.message}</div>
 
-      <button
-        style={{
-          ...N.button,
-          ...(popupNotif.type === "success" ? N.successBtn : N.errorBtn),
-        }}
-        onClick={closePopupNotif}
-      >
-        Oke
-      </button>
-    </div>
-  </div>
-) : null}
+            <button
+              style={{
+                ...N.button,
+                ...(popupNotif.type === "success" ? N.successBtn : N.errorBtn),
+              }}
+              onClick={closePopupNotif}
+            >
+              Oke
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <InlineWorkTutor
         open={tutorActive && !isDone}
@@ -949,7 +965,9 @@ function InlineWorkTutor({ open, steps = [] }) {
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          <div style={IT.badge}>Tutorial {index + 1}/{total}</div>
+          <div style={IT.badge}>
+            Tutorial {index + 1}/{total}
+          </div>
           <div style={IT.title}>{step.title}</div>
           <div style={IT.body}>{step.body}</div>
 
@@ -1023,13 +1041,13 @@ const IT = {
     position: "fixed",
     zIndex: 30000,
     pointerEvents: "auto",
-    transition: "top 280ms ease, left 280ms ease, bottom 280ms ease, transform 280ms ease",
+    transition:
+      "top 280ms ease, left 280ms ease, bottom 280ms ease, transform 280ms ease",
   },
   card: {
     borderRadius: 22,
     border: "1px solid rgba(255,255,255,0.12)",
-    background:
-      "linear-gradient(180deg, #15182a 0%, #0c0e18 100%)",
+    background: "linear-gradient(180deg, #15182a 0%, #0c0e18 100%)",
     color: "#f5f8ff",
     boxShadow: "0 24px 80px rgba(0,0,0,0.75)",
     padding: 18,
@@ -1085,7 +1103,6 @@ const IT = {
     boxShadow: "0 14px 30px rgba(80,90,255,0.28)",
   },
 };
-
 
 const D = {
   snipList: {

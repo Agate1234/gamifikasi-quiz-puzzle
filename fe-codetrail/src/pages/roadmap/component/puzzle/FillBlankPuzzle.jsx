@@ -24,7 +24,10 @@ export default function FillBlankPuzzle({
   const { secondsElapsed, timeMM, timeSS, timeText } = usePuzzleTimer(
     open,
     Number(puzzle?.waktu || 0),
-    puzzle?.id_progress_puzzle || puzzle?.id_puzzle || puzzle?.id || "fill-blank",
+    puzzle?.id_progress_puzzle ||
+      puzzle?.id_puzzle ||
+      puzzle?.id ||
+      "fill-blank",
   );
 
   const [answers, setAnswers] = useState({});
@@ -140,7 +143,9 @@ export default function FillBlankPuzzle({
   const expectedAnswers = detail.expected_answers || {};
 
   const normalizeText = (value) => {
-    return String(value || "").trim().toLowerCase();
+    return String(value || "")
+      .trim()
+      .toLowerCase();
   };
 
   const getInputWidth = (key) => {
@@ -214,7 +219,8 @@ export default function FillBlankPuzzle({
       showPopupNotif({
         type: "error",
         title: "Terjadi Error",
-        message: "ID progress puzzle tidak ditemukan. Cek mapping selectedPuzzle.",
+        message:
+          "ID progress puzzle tidak ditemukan. Cek mapping selectedPuzzle.",
       });
 
       return;
@@ -373,7 +379,8 @@ export default function FillBlankPuzzle({
               <div style={P.title}>{puzzleTitle}</div>
 
               <div style={P.desc}>
-                {detail.instruksi || "Lengkapi bagian kode yang kosong."}
+                {puzzle?.deskripsi_puzzle ||
+                  "Lengkapi bagian kode yang kosong."}
               </div>
             </div>
 
@@ -390,9 +397,13 @@ export default function FillBlankPuzzle({
             <div style={P.panel} data-tutor="fill-instruction">
               <div style={P.panelTitle}>Instruksi</div>
 
-              <div style={P.tip}>
-                Isi bagian kosong sesuai jawaban yang benar. Format kosong bisa
-                memakai <b>{"<blank1>"}</b> atau <b>{"{{blank1}}"}</b>.
+              <div
+                style={{
+                  ...P.tip,
+                  whiteSpace: "pre-line",
+                }}
+              >
+                {detail?.instruksi}
               </div>
 
               <div style={P.reward}>
@@ -412,7 +423,7 @@ export default function FillBlankPuzzle({
                     <span style={P.dot} />
                     <span style={P.dot} />
                   </div>
-                  <div style={P.fileTab}>fill_blank.js</div>
+                  <div style={P.fileTab}>FillBlank.java</div>
                 </div>
 
                 <div style={P.editorBody} data-tutor="fill-editor">
@@ -448,7 +459,9 @@ export default function FillBlankPuzzle({
             <div
               style={{
                 ...N.iconCircle,
-                ...(popupNotif.type === "success" ? N.successIcon : N.errorIcon),
+                ...(popupNotif.type === "success"
+                  ? N.successIcon
+                  : N.errorIcon),
               }}
             >
               {popupNotif.type === "success" ? "✓" : "✕"}
@@ -784,7 +797,9 @@ function InlineWorkTutor({ open, steps = [] }) {
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
-          <div style={IT.badge}>Tutorial {index + 1}/{total}</div>
+          <div style={IT.badge}>
+            Tutorial {index + 1}/{total}
+          </div>
           <div style={IT.title}>{step.title}</div>
           <div style={IT.body}>{step.body}</div>
 
@@ -864,8 +879,7 @@ const IT = {
   card: {
     borderRadius: 22,
     border: "1px solid rgba(255,255,255,0.12)",
-    background:
-      "linear-gradient(180deg, #15182a 0%, #0c0e18 100%)",
+    background: "linear-gradient(180deg, #15182a 0%, #0c0e18 100%)",
     color: "#f5f8ff",
     boxShadow: "0 24px 80px rgba(0,0,0,0.75)",
     padding: 18,

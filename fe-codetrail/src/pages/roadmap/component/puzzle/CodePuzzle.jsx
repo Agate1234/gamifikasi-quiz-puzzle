@@ -446,7 +446,8 @@ export default function CodePuzzle({
               <div style={P.title}>{puzzleTitle}</div>
 
               <div style={P.desc}>
-                {detail.instruksi || "Lengkapi kode sesuai instruksi."}
+                {puzzle?.deskripsi_puzzle ||
+                  "Selesaikan kode sesuai tugas yang diberikan."}
               </div>
             </div>
 
@@ -463,14 +464,20 @@ export default function CodePuzzle({
             <div style={P.panel} data-tutor="code-detail">
               <div style={P.panelTitle}>Detail Soal</div>
 
-              <div style={P.tip}>
-                <b>Function:</b> {detail.function_name || "-"}
-                <br />
-                <b>Language:</b> {detail.language || "-"}
-                <br />
-                <b>Time Limit:</b> {detail.time_limit_ms || "-"} ms
-                <br />
-                <b>Memory:</b> {detail.memory_limit_mb || "-"} MB
+              <div
+                style={{
+                  ...P.tip,
+                  whiteSpace: "pre-line",
+                  lineHeight: "1.7",
+                }}
+              >
+                {detail?.instruksi || (
+                  <>
+                    <b>Function:</b> {detail?.function_name || "-"}
+                    <br />
+                    <b>Language:</b> {detail?.language || "-"}
+                  </>
+                )}
               </div>
 
               <div style={C.testBox}>
@@ -508,12 +515,31 @@ export default function CodePuzzle({
                     <span style={P.dot} />
                     <span style={P.dot} />
                   </div>
-                  <div style={P.fileTab}>solution.{getFileExtension()}</div>
+
+                  <div style={P.fileTab}>Solution.java</div>
                 </div>
 
                 <textarea
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Tab") {
+                      e.preventDefault();
+
+                      const start = e.target.selectionStart;
+                      const end = e.target.selectionEnd;
+
+                      const newValue =
+                        code.substring(0, start) + "    " + code.substring(end);
+
+                      setCode(newValue);
+
+                      setTimeout(() => {
+                        e.target.selectionStart = e.target.selectionEnd =
+                          start + 4;
+                      }, 0);
+                    }
+                  }}
                   disabled={isSolved || running}
                   spellCheck={false}
                   style={{
