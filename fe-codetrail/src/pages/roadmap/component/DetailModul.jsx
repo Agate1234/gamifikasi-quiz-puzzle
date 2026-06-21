@@ -15,7 +15,6 @@ import DetailQuizModal from "./quiz/DetailQuiz";
 import { getMapQuizByIdApi } from "../../../components/api/quizmap";
 import { getNextSoalMahasiswaApi } from "../../../components/api/soal";
 
-
 const decodeLocalValue = (raw) => {
   try {
     if (!raw) return null;
@@ -45,7 +44,9 @@ const getSessionValue = (key, fallback = "") => {
 };
 
 function normalizeStatus(value) {
-  return String(value || "").toLowerCase().trim();
+  return String(value || "")
+    .toLowerCase()
+    .trim();
 }
 
 function isProgressDone(item) {
@@ -192,7 +193,8 @@ function NodePathSection({ list, tab, onPrimaryAction }) {
 
         {list.map((item, index) => {
           const isDone = isProgressDone(item);
-          const isLocked = item.status === "preview" || item.is_unlock === false;
+          const isLocked =
+            item.status === "preview" || item.is_unlock === false;
           const isActive = !isDone && !isLocked;
           const isCurrentFocus = isActive && index === currentIndex;
           const left = index % 2 === 0;
@@ -207,7 +209,9 @@ function NodePathSection({ list, tab, onPrimaryAction }) {
               }}
             >
               <button
-                className={isCurrentFocus ? "codetrail-current-node" : undefined}
+                className={
+                  isCurrentFocus ? "codetrail-current-node" : undefined
+                }
                 onClick={() => {
                   if (isLocked) return;
                   onPrimaryAction(item);
@@ -236,7 +240,9 @@ function NodePathSection({ list, tab, onPrimaryAction }) {
               </button>
 
               <div
-                className={isCurrentFocus ? "codetrail-current-label" : undefined}
+                className={
+                  isCurrentFocus ? "codetrail-current-label" : undefined
+                }
                 style={{
                   ...M.pathLabelCard,
                   ...(left ? M.pathLabelCardLeft : M.pathLabelCardRight),
@@ -304,7 +310,6 @@ const moduleCurrentEffectCss = `
     animation: codetrailCurrentLabelGlow 2.1s ease-in-out infinite;
   }
 `;
-
 
 export default function ModulePage({
   open,
@@ -406,23 +411,45 @@ export default function ModulePage({
   }, [tab, localModule]);
 
   const firstAvailableMateri = useMemo(() => {
-    return (localModule?.materi || []).find((item) => item.status !== "preview" && item.is_unlock !== false) || (localModule?.materi || [])[0];
+    return (
+      (localModule?.materi || []).find(
+        (item) => item.status !== "preview" && item.is_unlock !== false,
+      ) || (localModule?.materi || [])[0]
+    );
   }, [localModule]);
 
   const firstAvailableQuiz = useMemo(() => {
-    return (localModule?.kuis || []).find((item) => item.status !== "preview" && item.is_unlock !== false) || (localModule?.kuis || [])[0];
+    return (
+      (localModule?.kuis || []).find(
+        (item) => item.status !== "preview" && item.is_unlock !== false,
+      ) || (localModule?.kuis || [])[0]
+    );
   }, [localModule]);
 
   const firstDoneQuiz = useMemo(() => {
-    return (localModule?.kuis || []).find((item) => item.done || item.raw_status === "done" || item.status === "done") || firstAvailableQuiz;
+    return (
+      (localModule?.kuis || []).find(
+        (item) =>
+          item.done || item.raw_status === "done" || item.status === "done",
+      ) || firstAvailableQuiz
+    );
   }, [localModule, firstAvailableQuiz]);
 
   const firstAvailablePuzzle = useMemo(() => {
-    return (localModule?.puzzle || []).find((item) => item.status !== "preview" && item.is_unlock !== false) || (localModule?.puzzle || [])[0];
+    return (
+      (localModule?.puzzle || []).find(
+        (item) => item.status !== "preview" && item.is_unlock !== false,
+      ) || (localModule?.puzzle || [])[0]
+    );
   }, [localModule]);
 
   const firstDonePuzzle = useMemo(() => {
-    return (localModule?.puzzle || []).find((item) => item.done || item.raw_status === "done" || item.status === "done") || firstAvailablePuzzle;
+    return (
+      (localModule?.puzzle || []).find(
+        (item) =>
+          item.done || item.raw_status === "done" || item.status === "done",
+      ) || firstAvailablePuzzle
+    );
   }, [localModule, firstAvailablePuzzle]);
 
   const moduleStats = useMemo(() => {
@@ -454,9 +481,9 @@ export default function ModulePage({
   }, [localModule]);
 
   const notifyModuleProgressChange = (nextModule) => {
-  if (!nextModule) return;
-  onModuleProgressChange?.(nextModule);
-};
+    if (!nextModule) return;
+    onModuleProgressChange?.(nextModule);
+  };
 
   if (!open) return null;
 
@@ -475,7 +502,10 @@ export default function ModulePage({
       setMateriLoading(true);
 
       const params = new URLSearchParams();
-      const idUser = getEncryptedLocal("ct_id_user", getSessionValue("id_user", localStorage.getItem("id_user") || ""));
+      const idUser = getEncryptedLocal(
+        "ct_id_user",
+        getSessionValue("id_user", localStorage.getItem("id_user") || ""),
+      );
 
       if (idUser) {
         params.append("id_user", idUser);
@@ -528,7 +558,10 @@ export default function ModulePage({
       setQuizLoading(true);
 
       const params = new URLSearchParams();
-      const idUser = getEncryptedLocal("ct_id_user", getSessionValue("id_user", localStorage.getItem("id_user") || ""));
+      const idUser = getEncryptedLocal(
+        "ct_id_user",
+        getSessionValue("id_user", localStorage.getItem("id_user") || ""),
+      );
       if (idUser) params.append("id_user", idUser);
 
       const response = await getMapQuizByIdApi(item.id_quiz, params);
@@ -581,7 +614,10 @@ export default function ModulePage({
       setPuzzleLoading(true);
 
       const params = new URLSearchParams();
-      const idUser = getEncryptedLocal("ct_id_user", getSessionValue("id_user", localStorage.getItem("id_user") || ""));
+      const idUser = getEncryptedLocal(
+        "ct_id_user",
+        getSessionValue("id_user", localStorage.getItem("id_user") || ""),
+      );
 
       if (idUser) {
         params.append("id_user", idUser);
@@ -668,9 +704,7 @@ export default function ModulePage({
           0;
 
         const totalBenar =
-          payload.total_benar ||
-          payload.progress?.total_benar ||
-          0;
+          payload.total_benar || payload.progress?.total_benar || 0;
 
         const accuracy =
           totalSoal > 0
@@ -777,11 +811,13 @@ export default function ModulePage({
     setActivePuzzle(item);
     setPuzzleType(type);
     setPuzzleWorkTutorActive(
-      shouldShowPuzzleTutorByDb(item, localModule?.allPuzzle || localModule?.puzzle || []),
+      shouldShowPuzzleTutorByDb(
+        item,
+        localModule?.allPuzzle || localModule?.puzzle || [],
+      ),
     );
     setShowPuzzle(true);
   };
-
 
   const updateMateriUnlockUI = (finishedMateri, res = {}) => {
     setLocalModule((prev) => {
@@ -797,7 +833,8 @@ export default function ModulePage({
         ...prev,
         materi: prev.materi.map((item, index) => {
           const isCurrentMateri = Number(item.id_materi) === Number(finishedId);
-          const isNextMateri = currentIndex !== -1 && index === currentIndex + 1;
+          const isNextMateri =
+            currentIndex !== -1 && index === currentIndex + 1;
 
           if (isCurrentMateri) {
             return {
@@ -849,7 +886,9 @@ export default function ModulePage({
     try {
       setMateriLoading(true);
 
-      const response = await updateProgressMateriDoneApi(activeMateri.id_progress);
+      const response = await updateProgressMateriDoneApi(
+        activeMateri.id_progress,
+      );
 
       if (response?.status === 200 && response?.data?.success) {
         const current = response.data.data?.current || {};
@@ -874,22 +913,48 @@ export default function ModulePage({
   };
 
   const updateQuizUnlockUI = (finishedQuiz, res) => {
-  setLocalModule((prev) => {
-    if (!prev?.kuis) return prev;
+    setLocalModule((prev) => {
+      if (!prev?.kuis) return prev;
 
-    const finishedId = finishedQuiz?.id_quiz;
+      const finishedId = finishedQuiz?.id_quiz;
 
-    const currentIndex = prev.kuis.findIndex((item) => {
-      return Number(item.id_quiz) === Number(finishedId);
-    });
+      const currentIndex = prev.kuis.findIndex((item) => {
+        return Number(item.id_quiz) === Number(finishedId);
+      });
 
-    const nextModule = {
-      ...prev,
-      kuis: prev.kuis.map((item, index) => {
-        const isCurrentQuiz = Number(item.id_quiz) === Number(finishedId);
-        const isNextQuiz = currentIndex !== -1 && index === currentIndex + 1;
+      const nextModule = {
+        ...prev,
+        kuis: prev.kuis.map((item, index) => {
+          const isCurrentQuiz = Number(item.id_quiz) === Number(finishedId);
+          const isNextQuiz = currentIndex !== -1 && index === currentIndex + 1;
 
-        if (isCurrentQuiz) {
+          if (isCurrentQuiz) {
+            return {
+              ...item,
+              done: true,
+              status: "done",
+              raw_status: "done",
+              is_unlock: true,
+              score: res.score100,
+              hasil: res,
+            };
+          }
+
+          if (isNextQuiz) {
+            return {
+              ...item,
+              done: false,
+              status: "not done",
+              raw_status: "not done",
+              is_unlock: true,
+            };
+          }
+
+          return item;
+        }),
+        allKuis: (prev.allKuis || prev.kuis || []).map((item) => {
+          if (Number(item.id_quiz) !== Number(finishedId)) return item;
+
           return {
             ...item,
             done: true,
@@ -899,58 +964,61 @@ export default function ModulePage({
             score: res.score100,
             hasil: res,
           };
-        }
+        }),
+      };
 
-        if (isNextQuiz) {
-          return {
-            ...item,
-            done: false,
-            status: "not done",
-            raw_status: "not done",
-            is_unlock: true,
-          };
-        }
+      notifyModuleProgressChange(nextModule);
 
-        return item;
-      }),
-      allKuis: (prev.allKuis || prev.kuis || []).map((item) => {
-        if (Number(item.id_quiz) !== Number(finishedId)) return item;
-
-        return {
-          ...item,
-          done: true,
-          status: "done",
-          raw_status: "done",
-          is_unlock: true,
-          score: res.score100,
-          hasil: res,
-        };
-      }),
-    };
-
-    notifyModuleProgressChange(nextModule);
-
-    return nextModule;
-  });
-};
+      return nextModule;
+    });
+  };
 
   const updatePuzzleUnlockUI = (finishedPuzzle, res) => {
-  setLocalModule((prev) => {
-    if (!prev?.puzzle) return prev;
+    setLocalModule((prev) => {
+      if (!prev?.puzzle) return prev;
 
-    const finishedId = finishedPuzzle?.id_puzzle;
+      const finishedId = finishedPuzzle?.id_puzzle;
 
-    const currentIndex = prev.puzzle.findIndex((item) => {
-      return Number(item.id_puzzle) === Number(finishedId);
-    });
+      const currentIndex = prev.puzzle.findIndex((item) => {
+        return Number(item.id_puzzle) === Number(finishedId);
+      });
 
-    const nextModule = {
-      ...prev,
-      puzzle: prev.puzzle.map((item, index) => {
-        const isCurrentPuzzle = Number(item.id_puzzle) === Number(finishedId);
-        const isNextPuzzle = currentIndex !== -1 && index === currentIndex + 1;
+      const nextModule = {
+        ...prev,
+        puzzle: prev.puzzle.map((item, index) => {
+          const isCurrentPuzzle = Number(item.id_puzzle) === Number(finishedId);
+          const isNextPuzzle =
+            currentIndex !== -1 && index === currentIndex + 1;
 
-        if (isCurrentPuzzle) {
+          if (isCurrentPuzzle) {
+            return {
+              ...item,
+              done: true,
+              status: "done",
+              raw_status: "done",
+              is_unlock: true,
+              attempt: res.attempt,
+              waktu: res.waktu,
+              jawaban: res.jawaban,
+              hasil: res.hasil,
+            };
+          }
+
+          if (isNextPuzzle) {
+            return {
+              ...item,
+              done: false,
+              status: "not done",
+              raw_status: "not done",
+              is_unlock: true,
+            };
+          }
+
+          return item;
+        }),
+        allPuzzle: (prev.allPuzzle || prev.puzzle || []).map((item) => {
+          if (Number(item.id_puzzle) !== Number(finishedId)) return item;
+
           return {
             ...item,
             done: true,
@@ -962,42 +1030,14 @@ export default function ModulePage({
             jawaban: res.jawaban,
             hasil: res.hasil,
           };
-        }
+        }),
+      };
 
-        if (isNextPuzzle) {
-          return {
-            ...item,
-            done: false,
-            status: "not done",
-            raw_status: "not done",
-            is_unlock: true,
-          };
-        }
+      notifyModuleProgressChange(nextModule);
 
-        return item;
-      }),
-      allPuzzle: (prev.allPuzzle || prev.puzzle || []).map((item) => {
-        if (Number(item.id_puzzle) !== Number(finishedId)) return item;
-
-        return {
-          ...item,
-          done: true,
-          status: "done",
-          raw_status: "done",
-          is_unlock: true,
-          attempt: res.attempt,
-          waktu: res.waktu,
-          jawaban: res.jawaban,
-          hasil: res.hasil,
-        };
-      }),
-    };
-
-    notifyModuleProgressChange(nextModule);
-
-    return nextModule;
-  });
-};
+      return nextModule;
+    });
+  };
 
   return (
     <>
@@ -1015,17 +1055,37 @@ export default function ModulePage({
                 {module?.level || "Level"}: {module?.title || "-"}
               </span>
             </div>
-
-            <div style={M.topRight}>
-              <div style={M.pillSmall}>⚡ Streak: 5 hari</div>
-              <div style={M.circleBtn} title="Tema">
-                ☾
-              </div>
-            </div>
           </div>
 
           <div style={M.content}>
             <section style={M.hero} data-tutor="module-hero">
+              <div
+                style={{
+                  position: "absolute",
+                  top: -120,
+                  right: -80,
+                  width: 300,
+                  height: 300,
+                  borderRadius: "50%",
+                  background: "rgba(99,102,241,0.12)",
+                  filter: "blur(100px)",
+                  pointerEvents: "none",
+                }}
+              />
+
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: -100,
+                  left: -100,
+                  width: 260,
+                  height: 260,
+                  borderRadius: "50%",
+                  background: "rgba(34,197,94,0.08)",
+                  filter: "blur(100px)",
+                  pointerEvents: "none",
+                }}
+              />
               <div style={M.heroLeft}>
                 <div style={M.heroTags}>
                   <span style={M.tag}>{module?.level || "LEVEL"}</span>
@@ -1071,13 +1131,23 @@ export default function ModulePage({
 
               <div style={M.heroRight}>
                 <div style={M.heroXP}>
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: -80,
+                      right: -80,
+                      width: 180,
+                      height: 180,
+                      borderRadius: "50%",
+                      background: "rgba(99,102,241,0.25)",
+                      filter: "blur(60px)",
+                    }}
+                  />
                   <div style={M.heroXPTop}>
                     <div>
                       <div style={M.heroXPLabel}>XP Potential</div>
                       <div style={M.heroXPSub}>Reward modul ini</div>
                     </div>
-
-                    <div style={M.heroXPBadge}>🧩</div>
                   </div>
 
                   <div style={M.heroXPValue}>+{module?.totalXP || 0} XP</div>
@@ -1257,7 +1327,6 @@ export default function ModulePage({
           setQuizResultData(null);
         }}
       />
-
     </>
   );
 }
@@ -1494,15 +1563,18 @@ const M = {
   },
 
   heroXP: {
-    width: 270,
-    padding: "20px 18px",
+    width: 280,
+    padding: "24px",
     borderRadius: 24,
-    border: "1px solid rgba(148,163,184,0.08)",
+    border: "1px solid rgba(148,163,184,0.12)",
     background: "#111827",
-    boxShadow: "0 14px 40px rgba(0,0,0,0.35)",
+    boxShadow: `
+    0 20px 40px rgba(0,0,0,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.03)
+  `,
     display: "flex",
     flexDirection: "column",
-    gap: 14,
+    gap: 18,
   },
 
   heroXPTop: {
@@ -1510,18 +1582,6 @@ const M = {
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
-  },
-
-  heroXPBadge: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
-    display: "grid",
-    placeItems: "center",
-    fontSize: 20,
-    border: "1px solid rgba(99,102,241,0.18)",
-    background: "#1E293B",
-    color: "#A5B4FC",
   },
 
   heroXPLabel: {
@@ -1537,10 +1597,11 @@ const M = {
   },
 
   heroXPValue: {
-    fontSize: 34,
+    fontSize: 42,
     fontWeight: 900,
-    color: "#818CF8",
+    color: "#F8FAFC",
     lineHeight: 1,
+    letterSpacing: "-1px",
   },
 
   listHeader: {
@@ -1691,9 +1752,9 @@ const M = {
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
-    minWidth: 200,
-    maxWidth: 250,
-    padding: "16px 18px",
+    minWidth: 240,
+maxWidth: 300,
+    padding: "18px 22px",
     borderRadius: 20,
     border: "1px solid rgba(148,163,184,0.08)",
     background: "#111827",
